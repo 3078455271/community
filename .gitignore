@@ -1,0 +1,28 @@
+# 环境变量
+.env
+
+# IDE
+.idea/
+.vscode/
+*.iml
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+logs/
+*.log
+
+# Maven
+target/
+backend/target/
+
+# Node
+frontend/node_modules/
+frontend/.nuxt/
+frontend/.output/
+
+# Docker
+mysql_data/
+redis_data/
