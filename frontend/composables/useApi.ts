@@ -2,7 +2,10 @@ import type { ApiResponse } from '~/types'
 
 export const useApi = () => {
   const config = useRuntimeConfig()
-  const baseURL = config.public.apiBase + '/api'
+  const apiBase = config.public.apiBase?.trim() || ''
+  const baseURL = apiBase.startsWith('http://') || apiBase.startsWith('https://')
+    ? `${apiBase}/api`
+    : '/api'
 
   const request = async <T>(url: string, options: Record<string, unknown> = {}): Promise<T> => {
     const response = await $fetch<T>(url, {

@@ -71,8 +71,6 @@ services:
       dockerfile: Dockerfile
     container_name: community-frontend
     restart: always
-    environment:
-      NUXT_PUBLIC_API_BASE: http://backend:8080
     networks:
       - community-network
     depends_on:
