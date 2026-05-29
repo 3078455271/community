@@ -9,8 +9,10 @@
           <el-menu-item index="/">首页</el-menu-item>
           <el-menu-item index="/posts">帖子</el-menu-item>
         </el-menu>
+        <SearchBox />
         <div class="user-actions">
           <template v-if="userStore.isLoggedIn">
+            <NotificationBell />
             <el-dropdown @command="handleCommand">
               <span class="user-info">
                 <el-avatar :size="32" :src="userStore.userInfo?.avatar">
@@ -81,10 +83,11 @@ const handleCommand = (command: string) => {
   align-items: center;
   height: 100%;
   padding: 0 20px;
+  gap: 20px;
 }
 
 .logo {
-  margin-right: 40px;
+  margin-right: 20px;
 }
 
 .logo h1 {
@@ -101,7 +104,7 @@ const handleCommand = (command: string) => {
 .user-actions {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 15px;
 }
 
 .user-info {

@@ -93,10 +93,13 @@ xyz.haimianxiaozi/
 ├── entity/         # 数据库实体
 ├── dto/            # 请求参数
 ├── vo/             # 响应数据
+├── enums/          # 公共枚举（CommonEnums 等）
 ├── config/         # 配置类
 ├── common/         # 公共类
 └── util/           # 工具类
 ```
+
+**枚举规范**：公共枚举统一放在 `enums` 包下，命名为 `XxxEnums` 或 `XxxEnum`，用于定义状态码、类型等常量集合。
 
 ---
 

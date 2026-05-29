@@ -9,7 +9,7 @@ export interface UserInfo {
 }
 
 /** 统一响应格式 */
-export interface ApiResponse<T = any> {
+export interface ApiResponse<T = unknown> {
   code: number
   message: string
   data: T
@@ -67,4 +67,21 @@ export interface CommentInfo {
   likeCount: number
   createdAt: string
   children?: CommentInfo[]
+}
+
+/** 点赞请求 */
+export interface LikeRequest {
+  targetId: number
+  targetType: 'POST' | 'COMMENT'
+}
+
+/** 通知信息 */
+export interface NotificationInfo {
+  id: number
+  userId: number
+  type: string
+  content: string
+  targetId?: number
+  isRead: boolean
+  createdAt: string
 }

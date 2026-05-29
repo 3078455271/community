@@ -50,11 +50,13 @@
 </template>
 
 <script setup lang="ts">
+import type { PostInfo, CategoryInfo, ApiResponse, PageData } from '~/types'
+
 const api = useApi()
 const userStore = useUserStore()
 
-const posts = ref([])
-const categories = ref([])
+const posts = ref<PostInfo[]>([])
+const categories = ref<CategoryInfo[]>([])
 const loading = ref(false)
 const page = ref(1)
 const size = ref(10)
@@ -68,7 +70,7 @@ const formatDate = (date: string) => {
 
 const fetchCategories = async () => {
   try {
-    const res = await api.get('/categories') as any
+    const res = await api.get<ApiResponse<CategoryInfo[]>>('/categories')
     if (res.code === 200) {
       categories.value = res.data
     }
@@ -80,11 +82,11 @@ const fetchCategories = async () => {
 const fetchPosts = async () => {
   loading.value = true
   try {
-    const params: any = { page: page.value, size: size.value }
+    const params: Record<string, number> = { page: page.value, size: size.value }
     if (categoryId.value) {
       params.categoryId = categoryId.value
     }
-    const res = await api.get('/posts', params) as any
+    const res = await api.get<ApiResponse<PageData<PostInfo>>>('/posts', { params })
     if (res.code === 200) {
       posts.value = res.data.records
       total.value = res.data.total

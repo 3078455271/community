@@ -37,6 +37,8 @@ CREATE TABLE IF NOT EXISTS `post` (
     PRIMARY KEY (`id`),
     INDEX `idx_user_id` (`user_id`),
     INDEX `idx_category_id` (`category_id`),
+    INDEX `idx_created_at` (`created_at`),
+    FULLTEXT INDEX `ft_title_content` (`title`, `content`),
     FOREIGN KEY (`user_id`) REFERENCES `user`(`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
@@ -64,7 +66,35 @@ CREATE TABLE IF NOT EXISTS `comment` (
     PRIMARY KEY (`id`),
     INDEX `idx_post_id` (`post_id`),
     INDEX `idx_user_id` (`user_id`),
+    INDEX `idx_parent_id` (`parent_id`),
     FOREIGN KEY (`post_id`) REFERENCES `post`(`id`),
+    FOREIGN KEY (`user_id`) REFERENCES `user`(`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 点赞表
+CREATE TABLE IF NOT EXISTS `like` (
+    `id` BIGINT NOT NULL AUTO_INCREMENT,
+    `user_id` BIGINT NOT NULL,
+    `target_id` BIGINT NOT NULL,
+    `target_type` VARCHAR(20) NOT NULL COMMENT 'POST/COMMENT',
+    `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (`id`),
+    UNIQUE INDEX `uk_user_target` (`user_id`, `target_id`, `target_type`),
+    INDEX `idx_target` (`target_id`, `target_type`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 通知表
+CREATE TABLE IF NOT EXISTS `notification` (
+    `id` BIGINT NOT NULL AUTO_INCREMENT,
+    `user_id` BIGINT NOT NULL,
+    `type` VARCHAR(20) NOT NULL COMMENT 'LIKE/COMMENT/SYSTEM',
+    `content` VARCHAR(500) NOT NULL,
+    `target_id` BIGINT,
+    `is_read` TINYINT(1) DEFAULT 0,
+    `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (`id`),
+    INDEX `idx_user_id` (`user_id`),
+    INDEX `idx_user_read` (`user_id`, `is_read`),
     FOREIGN KEY (`user_id`) REFERENCES `user`(`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 

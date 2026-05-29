@@ -5,6 +5,7 @@
 .idea/
 .vscode/
 *.iml
+.cursor/
 
 # OS
 .DS_Store

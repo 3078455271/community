@@ -35,7 +35,10 @@
 </template>
 
 <script setup lang="ts">
-const formRef = ref()
+import type { FormInstance } from 'element-plus'
+import type { CategoryInfo, ApiResponse } from '~/types'
+
+const formRef = ref<FormInstance>()
 const loading = ref(false)
 const api = useApi()
 
@@ -45,7 +48,7 @@ const form = reactive({
   categoryId: null as number | null,
 })
 
-const categories = ref<any[]>([])
+const categories = ref<CategoryInfo[]>([])
 
 const rules = {
   title: [{ required: true, message: '请输入标题', trigger: 'blur' }],
@@ -55,7 +58,7 @@ const rules = {
 
 const fetchCategories = async () => {
   try {
-    const res = await api.get('/categories') as any
+    const res = await api.get<ApiResponse<CategoryInfo[]>>('/categories')
     if (res.code === 200) {
       categories.value = res.data
     }
@@ -68,15 +71,16 @@ const handleSubmit = async () => {
   await formRef.value?.validate()
   loading.value = true
   try {
-    const res = await api.post('/posts', form) as any
+    const res = await api.post<ApiResponse<number>>('/posts', form)
     if (res.code === 200) {
       ElMessage.success('发布成功')
       navigateTo(`/posts/${res.data}`)
     } else {
       ElMessage.error(res.message || '发布失败')
     }
-  } catch (error: any) {
-    ElMessage.error(error.message || '发布失败')
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : '发布失败'
+    ElMessage.error(message)
   } finally {
     loading.value = false
   }

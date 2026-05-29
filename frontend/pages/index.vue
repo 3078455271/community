@@ -67,13 +67,46 @@
 </template>
 
 <script setup lang="ts">
-const posts = ref([])
-const categories = ref([
-  { id: 1, name: '技术交流' },
-  { id: 2, name: '问答求助' },
-  { id: 3, name: '项目展示' },
-  { id: 4, name: '资源分享' },
+import type { PostInfo, CategoryInfo, ApiResponse, PageData } from '~/types'
+
+const api = useApi()
+
+const posts = ref<PostInfo[]>([])
+const categories = ref<CategoryInfo[]>([
+  { id: 1, name: '技术交流', sort: 1 },
+  { id: 2, name: '问答求助', sort: 2 },
+  { id: 3, name: '项目展示', sort: 3 },
+  { id: 4, name: '资源分享', sort: 4 },
 ])
+
+const fetchLatestPosts = async () => {
+  try {
+    const res = await api.get<ApiResponse<PageData<PostInfo>>>('/posts', {
+      params: { page: 1, size: 5 }
+    })
+    if (res.code === 200) {
+      posts.value = res.data.records
+    }
+  } catch (error) {
+    console.error('获取帖子失败:', error)
+  }
+}
+
+const fetchCategories = async () => {
+  try {
+    const res = await api.get<ApiResponse<CategoryInfo[]>>('/categories')
+    if (res.code === 200) {
+      categories.value = res.data
+    }
+  } catch (error) {
+    console.error('获取分类失败:', error)
+  }
+}
+
+onMounted(() => {
+  fetchLatestPosts()
+  fetchCategories()
+})
 </script>
 
 <style scoped>

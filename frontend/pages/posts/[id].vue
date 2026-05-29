@@ -27,9 +27,9 @@
       <div class="post-content" v-html="post.content"></div>
 
       <div class="post-actions">
-        <el-button @click="handleLike">
+        <el-button :type="isLiked ? 'primary' : 'default'" @click="handleLike">
           <el-icon><Star /></el-icon>
-          点赞 ({{ post.likeCount }})
+          {{ isLiked ? '已点赞' : '点赞' }} ({{ post.likeCount }})
         </el-button>
       </div>
     </el-card>
@@ -87,17 +87,19 @@
 
 <script setup lang="ts">
 import { User, Timer, View, Star } from '@element-plus/icons-vue'
+import type { PostInfo, CommentInfo } from '~/types'
 
 const route = useRoute()
 const api = useApi()
 const userStore = useUserStore()
 
-const post = ref<any>(null)
-const comments = ref<any[]>([])
+const post = ref<PostInfo | null>(null)
+const comments = ref<CommentInfo[]>([])
 const loading = ref(true)
 const commentContent = ref('')
 const submitting = ref(false)
-const replyingTo = ref<any>(null)
+const replyingTo = ref<CommentInfo | null>(null)
+const isLiked = ref(false)
 
 const postId = route.params.id
 
@@ -108,7 +110,7 @@ const formatDate = (date: string) => {
 
 const fetchPost = async () => {
   try {
-    const res = await api.get(`/posts/${postId}`) as any
+    const res = await api.get<{ code: number; data: PostInfo }>(`/posts/${postId}`)
     if (res.code === 200) {
       post.value = res.data
     }
@@ -119,7 +121,7 @@ const fetchPost = async () => {
 
 const fetchComments = async () => {
   try {
-    const res = await api.get(`/posts/${postId}/comments`) as any
+    const res = await api.get<{ code: number; data: CommentInfo[] }>(`/posts/${postId}/comments`)
     if (res.code === 200) {
       comments.value = res.data
     }
@@ -128,11 +130,39 @@ const fetchComments = async () => {
   }
 }
 
-const handleLike = () => {
-  ElMessage.success('点赞成功')
+const handleLike = async () => {
+  if (!userStore.isLoggedIn) {
+    ElMessage.warning('请先登录')
+    navigateTo('/login')
+    return
+  }
+
+  try {
+    if (isLiked.value) {
+      const res = await api.delete<{ code: number; message: string }>(`/posts/${postId}/like`)
+      if (res.code === 200) {
+        isLiked.value = false
+        if (post.value) {
+          post.value.likeCount = Math.max(0, post.value.likeCount - 1)
+        }
+        ElMessage.success('取消点赞成功')
+      }
+    } else {
+      const res = await api.post<{ code: number; message: string }>(`/posts/${postId}/like`)
+      if (res.code === 200) {
+        isLiked.value = true
+        if (post.value) {
+          post.value.likeCount++
+        }
+        ElMessage.success('点赞成功')
+      }
+    }
+  } catch (error) {
+    ElMessage.error('操作失败')
+  }
 }
 
-const replyTo = (comment: any) => {
+const replyTo = (comment: CommentInfo) => {
   replyingTo.value = comment
   commentContent.value = `@${comment.nickname || comment.username} `
 }
@@ -151,12 +181,12 @@ const submitComment = async () => {
 
   submitting.value = true
   try {
-    const data: any = { content: commentContent.value }
+    const data: { content: string; parentId?: number } = { content: commentContent.value }
     if (replyingTo.value) {
       data.parentId = replyingTo.value.id
     }
 
-    const res = await api.post(`/posts/${postId}/comments`, data) as any
+    const res = await api.post<{ code: number; message: string }>(`/posts/${postId}/comments`, data)
     if (res.code === 200) {
       ElMessage.success('评论成功')
       commentContent.value = ''
@@ -165,8 +195,9 @@ const submitComment = async () => {
     } else {
       ElMessage.error(res.message || '评论失败')
     }
-  } catch (error: any) {
-    ElMessage.error(error.message || '评论失败')
+  } catch (error: unknown) {
+    const err = error as Error
+    ElMessage.error(err.message || '评论失败')
   } finally {
     submitting.value = false
   }

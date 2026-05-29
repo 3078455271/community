@@ -7,7 +7,12 @@ import org.springframework.web.bind.annotation.*;
 import xyz.haimianxiaozi.common.R;
 import xyz.haimianxiaozi.dto.PostDTO;
 import xyz.haimianxiaozi.entity.Post;
+import xyz.haimianxiaozi.entity.User;
+import xyz.haimianxiaozi.enums.CommonEnums.LikeTargetType;
+import xyz.haimianxiaozi.service.LikeService;
+import xyz.haimianxiaozi.service.NotificationService;
 import xyz.haimianxiaozi.service.PostServiceExt;
+import xyz.haimianxiaozi.service.UserService;
 import xyz.haimianxiaozi.util.UserContext;
 import xyz.haimianxiaozi.vo.PostVO;
 
@@ -17,6 +22,9 @@ import xyz.haimianxiaozi.vo.PostVO;
 public class PostController {
 
     private final PostServiceExt postServiceExt;
+    private final LikeService likeService;
+    private final NotificationService notificationService;
+    private final UserService userService;
     private final UserContext userContext;
 
     @GetMapping
@@ -25,6 +33,14 @@ public class PostController {
             @RequestParam(defaultValue = "10") int size,
             @RequestParam(required = false) Long categoryId) {
         return R.ok(postServiceExt.getPostPage(page, size, categoryId));
+    }
+
+    @GetMapping("/search")
+    public R<Page<PostVO>> search(
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam String keyword) {
+        return R.ok(postServiceExt.searchPosts(page, size, keyword));
     }
 
     @GetMapping("/{id}")
@@ -97,5 +113,60 @@ public class PostController {
 
         postServiceExt.removeById(id);
         return R.ok("删除成功");
+    }
+
+    @PostMapping("/{id}/like")
+    public R<String> like(@PathVariable Long id) {
+        Long userId = userContext.getCurrentUserId();
+        if (userId == null) {
+            return R.fail(401, "请先登录");
+        }
+
+        Post post = postServiceExt.getById(id);
+        if (post == null) {
+            return R.fail("帖子不存在");
+        }
+
+        boolean success = likeService.like(userId, id, LikeTargetType.POST);
+        if (success) {
+            post.setLikeCount(post.getLikeCount() + 1);
+            postServiceExt.updateById(post);
+
+            // 发送通知（不通知自己）
+            if (!post.getUserId().equals(userId)) {
+                User user = userService.getById(userId);
+                String nickname = user != null ? user.getNickname() : "用户";
+                notificationService.sendNotification(
+                        post.getUserId(),
+                        "LIKE",
+                        nickname + " 赞了你的帖子「" + post.getTitle() + "」",
+                        id
+                );
+            }
+
+            return R.ok("点赞成功");
+        }
+        return R.fail("已点赞");
+    }
+
+    @DeleteMapping("/{id}/like")
+    public R<String> unlike(@PathVariable Long id) {
+        Long userId = userContext.getCurrentUserId();
+        if (userId == null) {
+            return R.fail(401, "请先登录");
+        }
+
+        Post post = postServiceExt.getById(id);
+        if (post == null) {
+            return R.fail("帖子不存在");
+        }
+
+        boolean success = likeService.unlike(userId, id, LikeTargetType.POST);
+        if (success) {
+            post.setLikeCount(Math.max(0, post.getLikeCount() - 1));
+            postServiceExt.updateById(post);
+            return R.ok("取消点赞成功");
+        }
+        return R.fail("未点赞");
     }
 }
