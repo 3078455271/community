@@ -9,4 +9,12 @@ public interface PostServiceExt {
     Page<PostVO> getPostPage(int page, int size, Long categoryId);
 
     PostVO getPostDetail(Long id);
+
+    void save(Post post);
+
+    Post getById(Long id);
+
+    void updateById(Post post);
+
+    void removeById(Long id);
 }
