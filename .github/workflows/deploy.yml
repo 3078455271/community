@@ -68,7 +68,7 @@ jobs:
             cd /opt/community
             
             # 拉取最新代码
-            git pull origin main
+            git pull origin master
             
             # 登录镜像仓库
             echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
