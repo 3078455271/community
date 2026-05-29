@@ -64,22 +64,6 @@ community-zhuge/
 
 启动后端后访问: http://localhost:8080/swagger-ui.html
 
-## 部署说明
-
-### GitHub Actions CI/CD
-
-1. 配置 GitHub Secrets:
-   - `SERVER_HOST`: 服务器地址
-   - `SERVER_USER`: 服务器用户名
-   - `SERVER_SSH_KEY`: SSH 私钥
-   - `SERVER_PORT`: SSH 端口 (默认 22)
-
-2. 推送 tag 触发部署:
-```bash
-git tag v1.0.0
-git push origin v1.0.0
-```
-
 ## License
 
 MIT
