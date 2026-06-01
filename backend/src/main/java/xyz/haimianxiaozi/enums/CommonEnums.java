@@ -26,4 +26,18 @@ public enum CommonEnums {
         private final String code;
         private final String desc;
     }
+
+    /**
+     * 用户状态
+     */
+    @Getter
+    @AllArgsConstructor
+    public enum UserStatus {
+
+        DISABLED(0, "禁用"),
+        ENABLED(1, "正常");
+
+        private final int code;
+        private final String desc;
+    }
 }

@@ -23,6 +23,11 @@ public class User {
 
     private Integer status;
 
+    /**
+     * 角色：USER / MODERATOR / ADMIN
+     */
+    private String role;
+
     @TableField(fill = FieldFill.INSERT)
     private LocalDateTime createdAt;
 

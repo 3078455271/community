@@ -8,6 +8,10 @@ import xyz.haimianxiaozi.common.R;
 import xyz.haimianxiaozi.dto.LoginDTO;
 import xyz.haimianxiaozi.dto.RegisterDTO;
 import xyz.haimianxiaozi.entity.User;
+import xyz.haimianxiaozi.enums.CommonEnums;
+import xyz.haimianxiaozi.enums.ErrorCode;
+import xyz.haimianxiaozi.enums.RoleEnum;
+import xyz.haimianxiaozi.exception.BizException;
 import xyz.haimianxiaozi.service.UserService;
 import xyz.haimianxiaozi.util.JwtUtil;
 import xyz.haimianxiaozi.vo.UserVO;
@@ -26,9 +30,8 @@ public class AuthController {
 
     @PostMapping("/register")
     public R<String> register(@Valid @RequestBody RegisterDTO dto) {
-        // 检查用户名是否已存在
         if (userService.getByUsername(dto.getUsername()) != null) {
-            return R.fail("用户名已存在");
+            throw new BizException(ErrorCode.USERNAME_EXISTS);
         }
 
         User user = new User();
@@ -36,7 +39,8 @@ public class AuthController {
         user.setNickname(dto.getNickname());
         user.setEmail(dto.getEmail());
         user.setPassword(passwordEncoder.encode(dto.getPassword()));
-        user.setStatus(1);
+        user.setStatus(CommonEnums.UserStatus.ENABLED.getCode());
+        user.setRole(RoleEnum.USER.getCode());
         userService.save(user);
 
         return R.ok("注册成功");
@@ -45,21 +49,18 @@ public class AuthController {
     @PostMapping("/login")
     public R<Map<String, Object>> login(@Valid @RequestBody LoginDTO dto) {
         User user = userService.getByUsername(dto.getUsername());
-        if (user == null) {
-            return R.fail("用户名或密码错误");
+        if (user == null || !passwordEncoder.matches(dto.getPassword(), user.getPassword())) {
+            throw new BizException(ErrorCode.BAD_CREDENTIALS);
         }
 
-        if (!passwordEncoder.matches(dto.getPassword(), user.getPassword())) {
-            return R.fail("用户名或密码错误");
+        if (user.getStatus() != null && user.getStatus() == CommonEnums.UserStatus.DISABLED.getCode()) {
+            throw new BizException(ErrorCode.ACCOUNT_DISABLED);
         }
 
-        if (user.getStatus() == 0) {
-            return R.fail("账号已被禁用");
-        }
+        String role = RoleEnum.fromCode(user.getRole()).getCode();
+        String token = jwtUtil.generateToken(user.getId(), user.getUsername(), role);
 
-        String token = jwtUtil.generateToken(user.getId(), user.getUsername());
-
-        Map<String, Object> result = new HashMap<>();
+        Map<String, Object> result = new HashMap<>(2);
         result.put("token", token);
 
         UserVO userVO = new UserVO();
@@ -68,6 +69,7 @@ public class AuthController {
         userVO.setNickname(user.getNickname());
         userVO.setAvatar(user.getAvatar());
         userVO.setEmail(user.getEmail());
+        userVO.setRole(role);
         userVO.setCreatedAt(user.getCreatedAt());
         result.put("user", userVO);
 

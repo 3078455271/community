@@ -9,6 +9,7 @@ import xyz.haimianxiaozi.dto.PostDTO;
 import xyz.haimianxiaozi.entity.Post;
 import xyz.haimianxiaozi.entity.User;
 import xyz.haimianxiaozi.enums.CommonEnums.LikeTargetType;
+import xyz.haimianxiaozi.enums.ErrorCode;
 import xyz.haimianxiaozi.service.LikeService;
 import xyz.haimianxiaozi.service.NotificationService;
 import xyz.haimianxiaozi.service.PostServiceExt;
@@ -82,10 +83,10 @@ public class PostController {
 
         Post post = postServiceExt.getById(id);
         if (post == null) {
-            return R.fail("帖子不存在");
+            return R.fail(ErrorCode.POST_NOT_FOUND);
         }
-        if (!post.getUserId().equals(userId)) {
-            return R.fail(403, "无权修改");
+        if (!post.getUserId().equals(userId) && !userContext.isAdminOrModerator()) {
+            return R.fail(ErrorCode.FORBIDDEN);
         }
 
         post.setTitle(dto.getTitle());
@@ -105,10 +106,10 @@ public class PostController {
 
         Post post = postServiceExt.getById(id);
         if (post == null) {
-            return R.fail("帖子不存在");
+            return R.fail(ErrorCode.POST_NOT_FOUND);
         }
-        if (!post.getUserId().equals(userId)) {
-            return R.fail(403, "无权删除");
+        if (!post.getUserId().equals(userId) && !userContext.isAdminOrModerator()) {
+            return R.fail(ErrorCode.FORBIDDEN);
         }
 
         postServiceExt.removeById(id);
