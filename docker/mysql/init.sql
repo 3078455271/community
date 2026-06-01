@@ -13,6 +13,7 @@ CREATE TABLE IF NOT EXISTS `user` (
     `avatar` VARCHAR(255),
     `email` VARCHAR(100),
     `status` TINYINT DEFAULT 1 COMMENT '0-禁用 1-正常',
+    `role` VARCHAR(20) NOT NULL DEFAULT 'USER' COMMENT '角色：USER/MODERATOR/ADMIN',
     `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
     `updated_at` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     `deleted` TINYINT DEFAULT 0,
@@ -97,6 +98,10 @@ CREATE TABLE IF NOT EXISTS `notification` (
     INDEX `idx_user_read` (`user_id`, `is_read`),
     FOREIGN KEY (`user_id`) REFERENCES `user`(`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 角色说明：新注册用户默认 USER。
+-- 如需管理员，注册账号后执行：UPDATE `user` SET `role` = 'ADMIN' WHERE `username` = '你的用户名';
+-- （不在此预置固定密码的管理员账号，避免泄露默认凭证）
 
 -- 初始分类数据
 INSERT INTO `category` (`name`, `description`, `sort`) VALUES

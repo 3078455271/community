@@ -34,6 +34,7 @@ public class UserController {
         vo.setNickname(user.getNickname());
         vo.setAvatar(user.getAvatar());
         vo.setEmail(user.getEmail());
+        vo.setRole(user.getRole());
         vo.setCreatedAt(user.getCreatedAt());
         return R.ok(vo);
     }

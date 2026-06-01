@@ -1,6 +1,7 @@
 package xyz.haimianxiaozi.common;
 
 import lombok.Data;
+import xyz.haimianxiaozi.enums.ErrorCode;
 
 import java.io.Serializable;
 
@@ -32,5 +33,13 @@ public class R<T> implements Serializable {
         r.setCode(code);
         r.setMessage(message);
         return r;
+    }
+
+    public static <T> R<T> fail(ErrorCode errorCode) {
+        return fail(errorCode.getCode(), errorCode.getMessage());
+    }
+
+    public static <T> R<T> fail(ErrorCode errorCode, String message) {
+        return fail(errorCode.getCode(), message);
     }
 }
