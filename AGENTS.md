@@ -14,6 +14,14 @@
 
 ---
 
+## CodeGraph 使用约定
+
+- 已安装 CodeGraph v0.9.9；分析代码调用链、符号关系、影响范围时，优先使用 CodeGraph 辅助定位，再结合源码核对结论
+- 如本项目尚未初始化索引，可执行 `codegraph init -i D:\java\communiy\Community-zhuge`
+- `.codegraph/` 仅作本地索引，不提交 Git
+
+---
+
 ## 后端开发规范（Java / Spring Boot）
 
 ### 命名规范

@@ -126,8 +126,10 @@ public class AdminController {
             if (user == null) {
                 return R.fail("用户不存在");
             }
-            user.setMutedUntil(null);
-            userService.updateById(user);
+            userService.lambdaUpdate()
+                    .eq(User::getId, id)
+                    .set(User::getMutedUntil, null)
+                    .update();
             adminService.audit(operator, "UNMUTE_USER", "USER", id, null);
             return R.ok("解除禁言成功");
         } catch (IllegalStateException e) {
