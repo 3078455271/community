@@ -45,6 +45,35 @@
           </el-form>
         </el-card>
 
+        <el-card style="margin-top: 20px;">
+          <template #header>
+            <span>积分等级</span>
+          </template>
+          <div class="point-panel" v-loading="loadingPoints">
+            <div class="point-row">
+              <span>等级</span>
+              <strong>Lv.{{ pointInfo?.level || 1 }}</strong>
+            </div>
+            <div class="point-row">
+              <span>积分</span>
+              <strong>{{ pointInfo?.points || 0 }}</strong>
+            </div>
+            <div class="point-row">
+              <span>签到天数</span>
+              <strong>{{ pointInfo?.signInDays || 0 }}</strong>
+            </div>
+            <el-button
+              type="primary"
+              :disabled="pointInfo?.signedInToday"
+              :loading="signingIn"
+              @click="handleSignIn"
+              style="width: 100%; margin-top: 12px;"
+            >
+              {{ pointInfo?.signedInToday ? '今日已签到' : '每日签到 +5' }}
+            </el-button>
+          </div>
+        </el-card>
+
         <!-- 修改密码 -->
         <el-card style="margin-top: 20px;">
           <template #header>
@@ -180,6 +209,34 @@
 
               <el-empty v-if="!loadingFavorites && favoritePosts.length === 0" description="暂无收藏" />
             </el-tab-pane>
+
+            <el-tab-pane label="浏览历史" name="history">
+              <el-table :data="historyPosts" v-loading="loadingHistory" style="width: 100%">
+                <el-table-column prop="title" label="标题" min-width="220">
+                  <template #default="{ row }">
+                    <el-link type="primary" @click="navigateTo(`/posts/${row.id}`)">
+                      <el-tag v-if="row.status === 2" size="small" type="danger">置顶</el-tag>
+                      <el-tag v-if="row.essence" size="small" type="warning">精华</el-tag>
+                      {{ row.title }}
+                    </el-link>
+                  </template>
+                </el-table-column>
+                <el-table-column prop="categoryName" label="分类" width="100" />
+                <el-table-column prop="nickname" label="作者" width="120">
+                  <template #default="{ row }">
+                    {{ row.nickname || row.username }}
+                  </template>
+                </el-table-column>
+                <el-table-column prop="viewCount" label="浏览" width="80" />
+                <el-table-column label="发布时间" width="160">
+                  <template #default="{ row }">
+                    {{ formatDate(row.createdAt) }}
+                  </template>
+                </el-table-column>
+              </el-table>
+
+              <el-empty v-if="!loadingHistory && historyPosts.length === 0" description="暂无浏览历史" />
+            </el-tab-pane>
           </el-tabs>
         </el-card>
       </el-col>
@@ -189,11 +246,14 @@
 
 <script setup lang="ts">
 import type { FormInstance, FormRules } from 'element-plus'
-import type { PostInfo, UserInfo, ApiResponse, PageData, FavoriteFolderInfo } from '~/types'
+import type { PostInfo, UserInfo, ApiResponse, PageData, FavoriteFolderInfo, UserPointInfo } from '~/types'
 
 const api = useApi()
 const userStore = useUserStore()
 const activeTab = ref('posts')
+const pointInfo = ref<UserPointInfo | null>(null)
+const loadingPoints = ref(false)
+const signingIn = ref(false)
 
 // 个人信息表单
 const profileFormRef = ref<FormInstance>()
@@ -254,6 +314,10 @@ const favoritePosts = ref<PostInfo[]>([])
 const favoriteFolderId = ref<number | null>(null)
 const loadingFavorites = ref(false)
 
+// 浏览历史
+const historyPosts = ref<PostInfo[]>([])
+const loadingHistory = ref(false)
+
 const formatDate = (date: string) => {
   if (!date) return ''
   return new Date(date).toLocaleString('zh-CN')
@@ -277,6 +341,35 @@ const fetchUserInfo = async () => {
     }
   } catch (error) {
     console.error('获取用户信息失败:', error)
+  }
+}
+
+const fetchPointInfo = async () => {
+  loadingPoints.value = true
+  try {
+    const res = await api.get<ApiResponse<UserPointInfo>>('/points/me')
+    if (res.code === 200) {
+      pointInfo.value = res.data
+    }
+  } catch (error) {
+    console.error('获取积分信息失败:', error)
+  } finally {
+    loadingPoints.value = false
+  }
+}
+
+const handleSignIn = async () => {
+  signingIn.value = true
+  try {
+    const res = await api.post<ApiResponse<UserPointInfo>>('/points/sign-in')
+    if (res.code === 200) {
+      pointInfo.value = res.data
+      ElMessage.success(res.data.signedInToday ? '签到成功' : '今日已签到')
+    } else {
+      ElMessage.error(res.message || '签到失败')
+    }
+  } finally {
+    signingIn.value = false
   }
 }
 
@@ -326,6 +419,20 @@ const fetchFavoritePosts = async () => {
     console.error('获取收藏帖子失败:', error)
   } finally {
     loadingFavorites.value = false
+  }
+}
+
+const fetchHistoryPosts = async () => {
+  loadingHistory.value = true
+  try {
+    const res = await api.get<ApiResponse<PageData<PostInfo>>>('/posts/history', { page: 1, size: 100 })
+    if (res.code === 200) {
+      historyPosts.value = res.data.records
+    }
+  } catch (error) {
+    console.error('获取浏览历史失败:', error)
+  } finally {
+    loadingHistory.value = false
   }
 }
 
@@ -442,10 +549,14 @@ watch(activeTab, (tab) => {
     fetchFavoriteFolders()
     fetchFavoritePosts()
   }
+  if (tab === 'history') {
+    fetchHistoryPosts()
+  }
 })
 
 onMounted(() => {
   fetchUserInfo()
+  fetchPointInfo()
   fetchMyPosts()
   fetchFavoriteFolders()
 })
@@ -474,5 +585,17 @@ onMounted(() => {
   display: flex;
   gap: 12px;
   margin-bottom: 12px;
+}
+
+.point-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.point-row {
+  display: flex;
+  justify-content: space-between;
+  color: #606266;
 }
 </style>

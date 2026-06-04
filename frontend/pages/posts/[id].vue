@@ -3,7 +3,11 @@
     <el-card v-if="post">
       <template #header>
         <div class="post-header">
-          <h1>{{ post.title }}</h1>
+          <h1>
+            <el-tag v-if="post.status === 2" size="small" type="danger">置顶</el-tag>
+            <el-tag v-if="post.essence" size="small" type="warning">精华</el-tag>
+            {{ post.title }}
+          </h1>
           <div class="post-meta">
             <span class="author">
               <el-icon><User /></el-icon>
@@ -33,11 +37,26 @@
               <el-icon><User /></el-icon>
               {{ followStatus.following ? '已关注' : '关注' }}
             </el-button>
+            <el-button v-if="showFollowButton" size="small" @click="navigateTo(`/chat?targetUserId=${post.userId}`)">
+              私信
+            </el-button>
           </div>
         </div>
       </template>
 
-      <div class="post-content" v-html="post.content"></div>
+      <div class="post-content" v-html="renderMarkdown(post.content)"></div>
+
+      <div class="post-tags" v-if="post.tags?.length">
+        <el-tag
+          v-for="tag in post.tags"
+          :key="tag.id"
+          size="small"
+          effect="plain"
+          @click="navigateTo(`/posts?tagId=${tag.id}`)"
+        >
+          #{{ tag.name }}
+        </el-tag>
+      </div>
 
       <div class="post-actions">
         <el-button :type="isLiked ? 'primary' : 'default'" @click="handleLike">
@@ -48,6 +67,23 @@
           <el-icon><Collection /></el-icon>
           {{ favoriteStatus.favorited ? '已收藏' : '收藏' }}
         </el-button>
+        <el-button @click="handleReport('POST', post.id)">举报</el-button>
+        <el-button v-if="showManageButtons" @click="handleTop">
+          {{ post.status === 2 ? '取消置顶' : '置顶' }}
+        </el-button>
+        <el-button v-if="showManageButtons" @click="handleEssence">
+          {{ post.essence ? '取消精华' : '设为精华' }}
+        </el-button>
+      </div>
+    </el-card>
+
+    <el-card v-if="relatedPosts.length" class="related-section">
+      <template #header>相关帖子</template>
+      <div class="related-list">
+        <div v-for="item in relatedPosts" :key="item.id" class="related-item" @click="navigateTo(`/posts/${item.id}`)">
+          <span class="related-title">{{ item.title }}</span>
+          <el-tag v-if="item.essence" size="small" type="warning">精华</el-tag>
+        </div>
       </div>
     </el-card>
 
@@ -80,9 +116,10 @@
             <span class="comment-time">{{ formatDate(comment.createdAt) }}</span>
           </div>
           <div class="comment-content">{{ comment.content }}</div>
-          <div class="comment-actions">
-            <el-button text size="small" @click="replyTo(comment)">回复</el-button>
-          </div>
+              <div class="comment-actions">
+                <el-button text size="small" @click="replyTo(comment)">回复</el-button>
+                <el-button text size="small" type="danger" @click="handleReport('COMMENT', comment.id)">举报</el-button>
+              </div>
 
           <!-- 子评论 -->
           <div v-if="comment.children?.length" class="sub-comments">
@@ -105,12 +142,14 @@
 <script setup lang="ts">
 import { Collection, User, Timer, View, Star } from '@element-plus/icons-vue'
 import type { PostInfo, CommentInfo, ApiResponse, FollowStatus, FavoriteStatus } from '~/types'
+import { renderMarkdown } from '~/utils/markdown'
 
 const route = useRoute()
 const api = useApi()
 const userStore = useUserStore()
 
 const post = ref<PostInfo | null>(null)
+const relatedPosts = ref<PostInfo[]>([])
 const comments = ref<CommentInfo[]>([])
 const loading = ref(true)
 const commentContent = ref('')
@@ -139,9 +178,35 @@ const showFollowButton = computed(() => {
   )
 })
 
+const showManageButtons = computed(() => {
+  return Boolean(post.value && userStore.isLoggedIn && post.value.userId === userStore.userInfo?.id)
+})
+
 const formatDate = (date: string) => {
   if (!date) return ''
   return new Date(date).toLocaleString('zh-CN')
+}
+
+const handleReport = async (targetType: 'POST' | 'COMMENT' | 'USER', targetId: number) => {
+  if (!userStore.isLoggedIn) {
+    ElMessage.warning('请先登录')
+    navigateTo('/login')
+    return
+  }
+  try {
+    const { value } = await ElMessageBox.prompt('请输入举报原因', '举报', {
+      inputPattern: /^.{2,500}$/,
+      inputErrorMessage: '举报原因长度为 2-500 个字符'
+    })
+    const res = await api.post<ApiResponse<number>>('/reports', { targetType, targetId, reason: value })
+    if (res.code === 200) {
+      ElMessage.success('举报已提交')
+    } else {
+      ElMessage.error(res.message || '举报失败')
+    }
+  } catch {
+    // 用户取消
+  }
 }
 
 const fetchPost = async () => {
@@ -149,10 +214,21 @@ const fetchPost = async () => {
     const res = await api.get<{ code: number; data: PostInfo }>(`/posts/${postId}`)
     if (res.code === 200) {
       post.value = res.data
-      await Promise.all([fetchFollowStatus(), fetchFavoriteStatus()])
+      await Promise.all([fetchFollowStatus(), fetchFavoriteStatus(), fetchRelatedPosts()])
     }
   } catch (error) {
     console.error('获取帖子失败:', error)
+  }
+}
+
+const fetchRelatedPosts = async () => {
+  try {
+    const res = await api.get<ApiResponse<PostInfo[]>>(`/posts/${postId}/related`, { limit: 6 })
+    if (res.code === 200) {
+      relatedPosts.value = res.data
+    }
+  } catch (error) {
+    console.error('获取相关帖子失败:', error)
   }
 }
 
@@ -280,6 +356,42 @@ const handleFavorite = async () => {
   }
 }
 
+const handleTop = async () => {
+  if (!post.value) return
+
+  try {
+    const res = post.value.status === 2
+      ? await api.delete<ApiResponse<string>>(`/posts/${post.value.id}/top`)
+      : await api.put<ApiResponse<string>>(`/posts/${post.value.id}/top`)
+    if (res.code === 200) {
+      post.value.status = post.value.status === 2 ? 1 : 2
+      ElMessage.success(res.data || '操作成功')
+    } else {
+      ElMessage.error(res.message || '操作失败')
+    }
+  } catch (error) {
+    ElMessage.error('操作失败')
+  }
+}
+
+const handleEssence = async () => {
+  if (!post.value) return
+
+  try {
+    const res = post.value.essence
+      ? await api.delete<ApiResponse<string>>(`/posts/${post.value.id}/essence`)
+      : await api.put<ApiResponse<string>>(`/posts/${post.value.id}/essence`)
+    if (res.code === 200) {
+      post.value.essence = !post.value.essence
+      ElMessage.success(res.data || '操作成功')
+    } else {
+      ElMessage.error(res.message || '操作失败')
+    }
+  } catch (error) {
+    ElMessage.error('操作失败')
+  }
+}
+
 const replyTo = (comment: CommentInfo) => {
   replyingTo.value = comment
   commentContent.value = `@${comment.username} `
@@ -329,6 +441,10 @@ onMounted(async () => {
 
 <style scoped>
 .post-header h1 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
   margin: 0 0 15px 0;
   font-size: 24px;
 }
@@ -352,10 +468,75 @@ onMounted(async () => {
   min-height: 200px;
 }
 
+.post-content :deep(pre) {
+  padding: 12px;
+  overflow: auto;
+  background: #1f2937;
+  border-radius: 6px;
+}
+
+.post-content :deep(code) {
+  padding: 2px 5px;
+  background: #f3f4f6;
+  border-radius: 4px;
+}
+
+.post-content :deep(pre code) {
+  padding: 0;
+  color: #f9fafb;
+  background: transparent;
+}
+
+.post-content :deep(img) {
+  max-width: 100%;
+  border-radius: 6px;
+}
+
+.post-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 20px;
+}
+
+.post-tags .el-tag {
+  cursor: pointer;
+}
+
 .post-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
   margin-top: 30px;
   padding-top: 20px;
   border-top: 1px solid #eee;
+}
+
+.related-section {
+  margin-top: 20px;
+}
+
+.related-list {
+  display: grid;
+  gap: 10px;
+}
+
+.related-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 0;
+  cursor: pointer;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.related-item:last-child {
+  border-bottom: none;
+}
+
+.related-title {
+  color: #303133;
 }
 
 .comment-section {

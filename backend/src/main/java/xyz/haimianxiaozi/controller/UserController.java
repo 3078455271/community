@@ -34,6 +34,9 @@ public class UserController {
         vo.setNickname(user.getNickname());
         vo.setAvatar(user.getAvatar());
         vo.setEmail(user.getEmail());
+        vo.setStatus(user.getStatus());
+        vo.setRole(user.getRole());
+        vo.setMutedUntil(user.getMutedUntil());
         vo.setCreatedAt(user.getCreatedAt());
         return R.ok(vo);
     }
@@ -50,6 +53,8 @@ public class UserController {
         vo.setUsername(user.getUsername());
         vo.setNickname(user.getNickname());
         vo.setAvatar(user.getAvatar());
+        vo.setStatus(user.getStatus());
+        vo.setRole(user.getRole());
         return R.ok(vo);
     }
 

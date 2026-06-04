@@ -19,13 +19,50 @@
           </el-select>
         </el-form-item>
 
+        <el-form-item label="标签">
+          <el-select
+            v-model="form.tags"
+            multiple
+            filterable
+            allow-create
+            default-first-option
+            :multiple-limit="5"
+            placeholder="输入标签后回车，最多 5 个"
+            style="width: 100%;"
+          >
+            <el-option v-for="tag in hotTags" :key="tag.id" :label="tag.name" :value="tag.name" />
+          </el-select>
+        </el-form-item>
+
         <el-form-item label="内容" prop="content">
-          <el-input
-            v-model="form.content"
-            type="textarea"
-            :rows="10"
-            placeholder="请输入帖子内容，使用 @用户名 可以提醒对方"
-          />
+          <div class="editor-box">
+            <div class="editor-toolbar">
+              <el-radio-group v-model="editorMode" size="small">
+                <el-radio-button label="edit">编辑</el-radio-button>
+                <el-radio-button label="preview">预览</el-radio-button>
+              </el-radio-group>
+              <div class="emoji-list">
+                <el-button v-for="emoji in emojis" :key="emoji" text size="small" @click="appendEmoji(emoji)">
+                  {{ emoji }}
+                </el-button>
+              </div>
+            </div>
+            <el-input
+              v-if="editorMode === 'edit'"
+              v-model="form.content"
+              type="textarea"
+              :rows="12"
+              placeholder="支持 Markdown、代码块、表情和图片粘贴上传，使用 @用户名 可以提醒对方"
+              @paste="handlePasteImage"
+            />
+            <div v-else class="markdown-preview" v-html="renderMarkdown(form.content)"></div>
+            <el-progress
+              v-if="uploading"
+              :percentage="uploadProgress"
+              :show-text="false"
+              class="upload-progress"
+            />
+          </div>
         </el-form-item>
 
         <el-form-item>
@@ -59,7 +96,8 @@
 
 <script setup lang="ts">
 import type { FormInstance } from 'element-plus'
-import type { CategoryInfo, ApiResponse, PageData, PostInfo } from '~/types'
+import type { CategoryInfo, ApiResponse, PageData, PostInfo, TagInfo } from '~/types'
+import { renderMarkdown } from '~/utils/markdown'
 
 const formRef = ref<FormInstance>()
 const loading = ref(false)
@@ -69,17 +107,22 @@ const draftDrawerVisible = ref(false)
 const api = useApi()
 const route = useRoute()
 const userStore = useUserStore()
+const { smartUpload, uploading, uploadProgress } = useUpload()
 
 const form = reactive({
   title: '',
   content: '',
   categoryId: null as number | null,
+  tags: [] as string[],
 })
 
 const categories = ref<CategoryInfo[]>([])
+const hotTags = ref<TagInfo[]>([])
 const drafts = ref<PostInfo[]>([])
 const draftId = ref<number | null>(route.query.draftId ? Number(route.query.draftId) : null)
 const lastSavedAt = ref<Date | null>(null)
+const editorMode = ref<'edit' | 'preview'>('edit')
+const emojis = ['😀', '👍', '🎉', '❤️', '🔥', '😂', '👏', '💡']
 let autosaveTimer: ReturnType<typeof setTimeout> | null = null
 
 const rules = {
@@ -96,6 +139,17 @@ const fetchCategories = async () => {
     }
   } catch (error) {
     console.error('获取分类失败:', error)
+  }
+}
+
+const fetchHotTags = async () => {
+  try {
+    const res = await api.get<ApiResponse<TagInfo[]>>('/tags/hot', { limit: 20 })
+    if (res.code === 200) {
+      hotTags.value = res.data
+    }
+  } catch (error) {
+    console.error('获取热门标签失败:', error)
   }
 }
 
@@ -122,6 +176,7 @@ const fetchDraftDetail = async (id: number) => {
       form.title = res.data.title
       form.content = res.data.content
       form.categoryId = res.data.categoryId || null
+      form.tags = res.data.tags?.map(tag => tag.name) || []
       draftId.value = id
     } else {
       ElMessage.error(res.message || '草稿不存在')
@@ -168,7 +223,8 @@ const saveDraft = async (silent = false) => {
     const data = {
       title: form.title,
       content: form.content,
-      categoryId: form.categoryId
+      categoryId: form.categoryId,
+      tags: form.tags
     }
     const res = draftId.value
       ? await api.put<ApiResponse<string>>(`/posts/drafts/${draftId.value}`, data)
@@ -233,6 +289,22 @@ const formatDate = (date: string | Date) => {
   return new Date(date).toLocaleString('zh-CN')
 }
 
+const appendEmoji = (emoji: string) => {
+  form.content = `${form.content}${emoji}`
+}
+
+const handlePasteImage = async (event: ClipboardEvent) => {
+  const file = Array.from(event.clipboardData?.files || []).find(item => item.type.startsWith('image/'))
+  if (!file) return
+
+  event.preventDefault()
+  const url = await smartUpload(file)
+  if (url) {
+    form.content = `${form.content}\n![图片](${url})\n`
+    ElMessage.success('图片已上传')
+  }
+}
+
 const scheduleAutosave = () => {
   if (autosaveTimer) {
     clearTimeout(autosaveTimer)
@@ -250,6 +322,7 @@ watch(form, () => {
 
 onMounted(async () => {
   fetchCategories()
+  fetchHotTags()
   if (draftId.value) {
     await fetchDraftDetail(draftId.value)
   }
@@ -282,5 +355,59 @@ h2 {
   margin-left: 12px;
   color: #909399;
   font-size: 13px;
+}
+
+.editor-box {
+  width: 100%;
+}
+
+.editor-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.emoji-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+}
+
+.markdown-preview {
+  min-height: 280px;
+  padding: 12px;
+  border: 1px solid var(--el-border-color);
+  border-radius: 4px;
+  line-height: 1.8;
+}
+
+.markdown-preview :deep(pre) {
+  padding: 12px;
+  overflow: auto;
+  background: #1f2937;
+  border-radius: 6px;
+}
+
+.markdown-preview :deep(code) {
+  padding: 2px 5px;
+  background: #f3f4f6;
+  border-radius: 4px;
+}
+
+.markdown-preview :deep(pre code) {
+  padding: 0;
+  color: #f9fafb;
+  background: transparent;
+}
+
+.markdown-preview :deep(img) {
+  max-width: 100%;
+  border-radius: 6px;
+}
+
+.upload-progress {
+  margin-top: 8px;
 }
 </style>

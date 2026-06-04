@@ -13,6 +13,9 @@
             <el-select v-model="categoryId" placeholder="全部分类" clearable style="margin-left: 15px; width: 150px;">
               <el-option v-for="cat in categories" :key="cat.id" :label="cat.name" :value="cat.id" />
             </el-select>
+            <el-select v-model="tagId" placeholder="热门标签" clearable style="margin-left: 15px; width: 150px;">
+              <el-option v-for="tag in hotTags" :key="tag.id" :label="`#${tag.name}`" :value="tag.id" />
+            </el-select>
           </div>
           <el-button type="primary" @click="handleCreate">发布帖子</el-button>
         </div>
@@ -22,6 +25,11 @@
         <el-table-column prop="title" label="标题" min-width="300">
           <template #default="{ row }">
             <NuxtLink :to="`/posts/${row.id}`" class="post-title">{{ row.title }}</NuxtLink>
+            <div class="post-tags" v-if="row.tags?.length">
+              <el-tag v-for="tag in row.tags" :key="tag.id" size="small" effect="plain">
+                #{{ tag.name }}
+              </el-tag>
+            </div>
           </template>
         </el-table-column>
         <el-table-column prop="categoryName" label="分类" width="120" />
@@ -55,18 +63,21 @@
 </template>
 
 <script setup lang="ts">
-import type { PostInfo, CategoryInfo, ApiResponse, PageData } from '~/types'
+import type { PostInfo, CategoryInfo, ApiResponse, PageData, TagInfo } from '~/types'
 
 const api = useApi()
 const userStore = useUserStore()
+const route = useRoute()
 
 const posts = ref<PostInfo[]>([])
 const categories = ref<CategoryInfo[]>([])
+const hotTags = ref<TagInfo[]>([])
 const loading = ref(false)
 const page = ref(1)
 const size = ref(10)
 const total = ref(0)
 const categoryId = ref<number | null>(null)
+const tagId = ref<number | null>(route.query.tagId ? Number(route.query.tagId) : null)
 const feedType = ref<'all' | 'following'>('all')
 const feedOptions = [
   { label: '全部', value: 'all' },
@@ -89,6 +100,17 @@ const fetchCategories = async () => {
   }
 }
 
+const fetchHotTags = async () => {
+  try {
+    const res = await api.get<ApiResponse<TagInfo[]>>('/tags/hot', { limit: 20 })
+    if (res.code === 200) {
+      hotTags.value = res.data
+    }
+  } catch (error) {
+    console.error('获取热门标签失败:', error)
+  }
+}
+
 const fetchPosts = async () => {
   if (feedType.value === 'following' && !userStore.isLoggedIn) {
     posts.value = []
@@ -103,6 +125,9 @@ const fetchPosts = async () => {
     const params: Record<string, number> = { page: page.value, size: size.value }
     if (categoryId.value && feedType.value === 'all') {
       params.categoryId = categoryId.value
+    }
+    if (tagId.value && feedType.value === 'all') {
+      params.tagId = tagId.value
     }
     const url = feedType.value === 'following' ? '/posts/following' : '/posts'
     const res = await api.get<ApiResponse<PageData<PostInfo>>>(url, params)
@@ -131,6 +156,11 @@ watch(categoryId, () => {
   fetchPosts()
 })
 
+watch(tagId, () => {
+  page.value = 1
+  fetchPosts()
+})
+
 watch(feedType, () => {
   page.value = 1
   fetchPosts()
@@ -138,6 +168,7 @@ watch(feedType, () => {
 
 onMounted(() => {
   fetchCategories()
+  fetchHotTags()
   fetchPosts()
 })
 </script>
@@ -161,6 +192,13 @@ onMounted(() => {
 
 .post-title:hover {
   color: var(--primary-color);
+}
+
+.post-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
 }
 
 .pagination {

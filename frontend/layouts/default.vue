@@ -8,6 +8,8 @@
         <el-menu mode="horizontal" :router="true" class="nav-menu" :default-active="route.path">
           <el-menu-item index="/">首页</el-menu-item>
           <el-menu-item index="/posts">帖子</el-menu-item>
+          <el-menu-item v-if="userStore.isLoggedIn" index="/chat">消息</el-menu-item>
+          <el-menu-item v-if="isManager" index="/admin">后台</el-menu-item>
         </el-menu>
         <SearchBox />
         <div class="user-actions">
@@ -49,6 +51,7 @@
 <script setup lang="ts">
 const route = useRoute()
 const userStore = useUserStore()
+const isManager = computed(() => ['ADMIN', 'MODERATOR'].includes(userStore.userInfo?.role || ''))
 
 onMounted(() => {
   userStore.loadFromStorage()

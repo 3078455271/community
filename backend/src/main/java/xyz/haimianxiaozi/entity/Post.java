@@ -27,6 +27,8 @@ public class Post {
 
     private Integer status;
 
+    private Boolean essence;
+
     @TableField(fill = FieldFill.INSERT)
     private LocalDateTime createdAt;
 

@@ -16,6 +16,7 @@ import xyz.haimianxiaozi.service.CategoryService;
 import xyz.haimianxiaozi.service.FavoriteFolderService;
 import xyz.haimianxiaozi.service.PostFavoriteService;
 import xyz.haimianxiaozi.service.PostServiceExt;
+import xyz.haimianxiaozi.service.TagService;
 import xyz.haimianxiaozi.service.UserService;
 import xyz.haimianxiaozi.vo.PostVO;
 
@@ -32,6 +33,7 @@ public class PostFavoriteServiceImpl extends ServiceImpl<PostFavoriteMapper, Pos
     private final PostServiceExt postServiceExt;
     private final UserService userService;
     private final CategoryService categoryService;
+    private final TagService tagService;
 
     @Override
     public boolean favorite(Long userId, Long postId, Long folderId) {
@@ -127,6 +129,7 @@ public class PostFavoriteServiceImpl extends ServiceImpl<PostFavoriteMapper, Pos
         if (category != null) {
             vo.setCategoryName(category.getName());
         }
+        vo.setTags(tagService.listPostTags(post.getId()));
         return vo;
     }
 }

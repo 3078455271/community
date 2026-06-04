@@ -6,10 +6,18 @@
         <span class="author">{{ post.nickname || post.username }}</span>
         <span class="time">{{ formatDate(post.createdAt) }}</span>
       </div>
+      <el-tag v-if="post.status === 2" size="small" type="danger">置顶</el-tag>
+      <el-tag v-if="post.essence" size="small" type="warning">精华</el-tag>
       <el-tag size="small" class="category-tag">{{ post.categoryName }}</el-tag>
     </div>
 
     <h3 class="post-title">{{ post.title }}</h3>
+
+    <div class="post-tags" v-if="post.tags?.length">
+      <el-tag v-for="tag in post.tags" :key="tag.id" size="small" effect="plain">
+        #{{ tag.name }}
+      </el-tag>
+    </div>
 
     <div class="post-stats">
       <span class="stat-item">
@@ -96,6 +104,13 @@ const formatDate = (date: string) => {
 .post-stats {
   display: flex;
   gap: 16px;
+}
+
+.post-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: -4px 0 12px;
 }
 
 .stat-item {

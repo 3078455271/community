@@ -10,9 +10,11 @@ import xyz.haimianxiaozi.entity.Post;
 import xyz.haimianxiaozi.entity.User;
 import xyz.haimianxiaozi.enums.CommonEnums.LikeTargetType;
 import xyz.haimianxiaozi.service.CommentService;
+import xyz.haimianxiaozi.service.ContentModerationService;
 import xyz.haimianxiaozi.service.LikeService;
 import xyz.haimianxiaozi.service.MentionService;
 import xyz.haimianxiaozi.service.NotificationService;
+import xyz.haimianxiaozi.service.PointService;
 import xyz.haimianxiaozi.service.PostService;
 import xyz.haimianxiaozi.service.UserService;
 import xyz.haimianxiaozi.util.UserContext;
@@ -31,6 +33,8 @@ public class CommentController {
     private final NotificationService notificationService;
     private final UserService userService;
     private final MentionService mentionService;
+    private final PointService pointService;
+    private final ContentModerationService contentModerationService;
     private final UserContext userContext;
 
     @GetMapping
@@ -43,6 +47,14 @@ public class CommentController {
         Long userId = userContext.getCurrentUserId();
         if (userId == null) {
             return R.fail(401, "请先登录");
+        }
+        User currentUser = userService.getById(userId);
+        if (contentModerationService.isMuted(currentUser)) {
+            return R.fail(403, contentModerationService.muteMessage(currentUser));
+        }
+        String sensitiveWord = contentModerationService.findSensitiveWord(dto.getContent());
+        if (sensitiveWord != null) {
+            return R.fail("评论包含敏感词：" + sensitiveWord);
         }
 
         Post post = postService.getById(postId);
@@ -62,8 +74,7 @@ public class CommentController {
         post.setCommentCount(post.getCommentCount() + 1);
         postService.updateById(post);
 
-        User user = userService.getById(userId);
-        String nickname = getDisplayName(user);
+        String nickname = getDisplayName(currentUser);
         mentionService.notifyMentions(dto.getContent(), userId, nickname, postId);
 
         // 发送通知给帖子作者（不通知自己）
@@ -89,6 +100,7 @@ public class CommentController {
             }
         }
 
+        pointService.rewardComment(userId);
         return R.ok(comment.getId());
     }
 

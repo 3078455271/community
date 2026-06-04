@@ -5,9 +5,13 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import xyz.haimianxiaozi.entity.Post;
 import xyz.haimianxiaozi.vo.PostVO;
 
+import java.util.List;
+
 public interface PostServiceExt extends IService<Post> {
 
     Page<PostVO> getPostPage(int page, int size, Long categoryId);
+
+    Page<PostVO> getPostPageByTag(int page, int size, Long tagId);
 
     PostVO getPostDetail(Long id);
 
@@ -26,4 +30,10 @@ public interface PostServiceExt extends IService<Post> {
      * @return 帖子分页
      */
     Page<PostVO> searchPosts(int page, int size, String keyword);
+
+    List<PostVO> getRelatedPosts(Long id, int limit);
+
+    void recordViewHistory(Long userId, Long postId);
+
+    Page<PostVO> getViewHistory(int page, int size, Long userId);
 }

@@ -10,5 +10,8 @@ public class UserVO {
     private String nickname;
     private String avatar;
     private String email;
+    private Integer status;
+    private String role;
+    private LocalDateTime mutedUntil;
     private LocalDateTime createdAt;
 }

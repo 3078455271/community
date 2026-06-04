@@ -13,10 +13,15 @@ import xyz.haimianxiaozi.enums.CommonEnums.LikeTargetType;
 import xyz.haimianxiaozi.service.LikeService;
 import xyz.haimianxiaozi.service.MentionService;
 import xyz.haimianxiaozi.service.NotificationService;
+import xyz.haimianxiaozi.service.PointService;
 import xyz.haimianxiaozi.service.PostServiceExt;
+import xyz.haimianxiaozi.service.ContentModerationService;
+import xyz.haimianxiaozi.service.TagService;
 import xyz.haimianxiaozi.service.UserService;
 import xyz.haimianxiaozi.util.UserContext;
 import xyz.haimianxiaozi.vo.PostVO;
+
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/posts")
@@ -28,13 +33,20 @@ public class PostController {
     private final NotificationService notificationService;
     private final UserService userService;
     private final MentionService mentionService;
+    private final TagService tagService;
+    private final PointService pointService;
+    private final ContentModerationService contentModerationService;
     private final UserContext userContext;
 
     @GetMapping
     public R<Page<PostVO>> list(
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "10") int size,
-            @RequestParam(required = false) Long categoryId) {
+            @RequestParam(required = false) Long categoryId,
+            @RequestParam(required = false) Long tagId) {
+        if (tagId != null) {
+            return R.ok(postServiceExt.getPostPageByTag(page, size, tagId));
+        }
         return R.ok(postServiceExt.getPostPage(page, size, categoryId));
     }
 
@@ -82,11 +94,27 @@ public class PostController {
         return R.ok(vo);
     }
 
+    @GetMapping("/history")
+    public R<Page<PostVO>> history(
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "10") int size) {
+        Long userId = userContext.getCurrentUserId();
+        if (userId == null) {
+            return R.fail(401, "请先登录");
+        }
+        return R.ok(postServiceExt.getViewHistory(page, size, userId));
+    }
+
     @PostMapping("/drafts")
     public R<Long> createDraft(@RequestBody PostDraftDTO dto) {
         Long userId = userContext.getCurrentUserId();
         if (userId == null) {
             return R.fail(401, "请先登录");
+        }
+        User currentUser = userService.getById(userId);
+        R<String> moderationResult = checkWritable(currentUser, dto.getContent());
+        if (moderationResult != null) {
+            return R.fail(moderationResult.getCode(), moderationResult.getMessage());
         }
 
         Post post = new Post();
@@ -96,7 +124,9 @@ public class PostController {
         post.setLikeCount(0);
         post.setCommentCount(0);
         post.setStatus(0);
+        post.setEssence(false);
         postServiceExt.save(post);
+        tagService.syncPostTags(post.getId(), dto.getTags(), false, false);
         return R.ok(post.getId());
     }
 
@@ -105,6 +135,11 @@ public class PostController {
         Long userId = userContext.getCurrentUserId();
         if (userId == null) {
             return R.fail(401, "请先登录");
+        }
+        User currentUser = userService.getById(userId);
+        R<String> moderationResult = checkWritable(currentUser, dto.getContent());
+        if (moderationResult != null) {
+            return R.fail(moderationResult.getCode(), moderationResult.getMessage());
         }
 
         Post post = postServiceExt.getById(id);
@@ -117,6 +152,7 @@ public class PostController {
 
         fillDraft(post, dto);
         postServiceExt.updateById(post);
+        tagService.syncPostTags(post.getId(), dto.getTags(), false, false);
         return R.ok("保存成功");
     }
 
@@ -125,6 +161,11 @@ public class PostController {
         Long userId = userContext.getCurrentUserId();
         if (userId == null) {
             return R.fail(401, "请先登录");
+        }
+        User currentUser = userService.getById(userId);
+        R<String> moderationResult = checkWritable(currentUser, dto.getContent());
+        if (moderationResult != null) {
+            return R.fail(moderationResult.getCode(), moderationResult.getMessage());
         }
 
         Post post = postServiceExt.getById(id);
@@ -139,10 +180,13 @@ public class PostController {
         post.setContent(dto.getContent());
         post.setCategoryId(dto.getCategoryId());
         post.setStatus(1);
+        post.setEssence(false);
         postServiceExt.updateById(post);
+        tagService.syncPostTags(post.getId(), dto.getTags(), true, false);
 
         User user = userService.getById(userId);
         mentionService.notifyMentions(dto.getContent(), userId, getDisplayName(user), post.getId());
+        pointService.rewardPost(userId);
         return R.ok(post.getId());
     }
 
@@ -152,7 +196,18 @@ public class PostController {
         if (vo == null) {
             return R.fail("帖子不存在");
         }
+        Long userId = userContext.getCurrentUserId();
+        if (userId != null) {
+            postServiceExt.recordViewHistory(userId, id);
+        }
         return R.ok(vo);
+    }
+
+    @GetMapping("/{id}/related")
+    public R<List<PostVO>> related(@PathVariable Long id,
+                                   @RequestParam(defaultValue = "6") int limit) {
+        int safeLimit = Math.min(Math.max(limit, 1), 12);
+        return R.ok(postServiceExt.getRelatedPosts(id, safeLimit));
     }
 
     @PostMapping
@@ -160,6 +215,11 @@ public class PostController {
         Long userId = userContext.getCurrentUserId();
         if (userId == null) {
             return R.fail(401, "请先登录");
+        }
+        User currentUser = userService.getById(userId);
+        R<String> moderationResult = checkWritable(currentUser, dto.getContent());
+        if (moderationResult != null) {
+            return R.fail(moderationResult.getCode(), moderationResult.getMessage());
         }
 
         Post post = new Post();
@@ -171,11 +231,14 @@ public class PostController {
         post.setLikeCount(0);
         post.setCommentCount(0);
         post.setStatus(1);
+        post.setEssence(false);
         postServiceExt.save(post);
+        tagService.syncPostTags(post.getId(), dto.getTags(), true, false);
 
         User user = userService.getById(userId);
         String displayName = getDisplayName(user);
         mentionService.notifyMentions(dto.getContent(), userId, displayName, post.getId());
+        pointService.rewardPost(userId);
 
         return R.ok(post.getId());
     }
@@ -185,6 +248,11 @@ public class PostController {
         Long userId = userContext.getCurrentUserId();
         if (userId == null) {
             return R.fail(401, "请先登录");
+        }
+        User currentUser = userService.getById(userId);
+        R<String> moderationResult = checkWritable(currentUser, dto.getContent());
+        if (moderationResult != null) {
+            return R.fail(moderationResult.getCode(), moderationResult.getMessage());
         }
 
         Post post = postServiceExt.getById(id);
@@ -199,6 +267,7 @@ public class PostController {
         post.setContent(dto.getContent());
         post.setCategoryId(dto.getCategoryId());
         postServiceExt.updateById(post);
+        tagService.syncPostTags(post.getId(), dto.getTags(), true, true);
 
         return R.ok("修改成功");
     }
@@ -218,6 +287,7 @@ public class PostController {
             return R.fail(403, "无权删除");
         }
 
+        tagService.syncPostTags(id, List.of(), false, isPublished(post));
         postServiceExt.removeById(id);
         return R.ok("删除成功");
     }
@@ -272,9 +342,29 @@ public class PostController {
         if (success) {
             post.setLikeCount(Math.max(0, post.getLikeCount() - 1));
             postServiceExt.updateById(post);
-            return R.ok("取消点赞成功");
+        return R.ok("取消点赞成功");
         }
         return R.fail("未点赞");
+    }
+
+    @PutMapping("/{id}/top")
+    public R<String> top(@PathVariable Long id) {
+        return updatePostMark(id, true, null);
+    }
+
+    @DeleteMapping("/{id}/top")
+    public R<String> cancelTop(@PathVariable Long id) {
+        return updatePostMark(id, false, null);
+    }
+
+    @PutMapping("/{id}/essence")
+    public R<String> essence(@PathVariable Long id) {
+        return updatePostMark(id, null, true);
+    }
+
+    @DeleteMapping("/{id}/essence")
+    public R<String> cancelEssence(@PathVariable Long id) {
+        return updatePostMark(id, null, false);
     }
 
     private String getDisplayName(User user) {
@@ -289,5 +379,43 @@ public class PostController {
         post.setTitle(title == null || title.isBlank() ? "未命名草稿" : title);
         post.setContent(dto.getContent() == null ? "" : dto.getContent());
         post.setCategoryId(dto.getCategoryId());
+    }
+
+    private boolean isPublished(Post post) {
+        return Integer.valueOf(1).equals(post.getStatus()) || Integer.valueOf(2).equals(post.getStatus());
+    }
+
+    private R<String> checkWritable(User user, String content) {
+        if (contentModerationService.isMuted(user)) {
+            return R.fail(403, contentModerationService.muteMessage(user));
+        }
+        String sensitiveWord = contentModerationService.findSensitiveWord(content);
+        if (sensitiveWord != null) {
+            return R.fail(400, "内容包含敏感词：" + sensitiveWord);
+        }
+        return null;
+    }
+
+    private R<String> updatePostMark(Long id, Boolean top, Boolean essence) {
+        Long userId = userContext.getCurrentUserId();
+        if (userId == null) {
+            return R.fail(401, "请先登录");
+        }
+
+        Post post = postServiceExt.getById(id);
+        if (post == null) {
+            return R.fail("帖子不存在");
+        }
+        if (!post.getUserId().equals(userId)) {
+            return R.fail(403, "无权操作");
+        }
+        if (top != null) {
+            post.setStatus(top ? 2 : 1);
+        }
+        if (essence != null) {
+            post.setEssence(essence);
+        }
+        postServiceExt.updateById(post);
+        return R.ok("操作成功");
     }
 }

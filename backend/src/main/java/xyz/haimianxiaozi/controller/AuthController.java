@@ -37,6 +37,7 @@ public class AuthController {
         user.setEmail(dto.getEmail());
         user.setPassword(passwordEncoder.encode(dto.getPassword()));
         user.setStatus(1);
+        user.setRole("USER");
         userService.save(user);
 
         return R.ok("注册成功");
@@ -68,6 +69,9 @@ public class AuthController {
         userVO.setNickname(user.getNickname());
         userVO.setAvatar(user.getAvatar());
         userVO.setEmail(user.getEmail());
+        userVO.setStatus(user.getStatus());
+        userVO.setRole(user.getRole());
+        userVO.setMutedUntil(user.getMutedUntil());
         userVO.setCreatedAt(user.getCreatedAt());
         result.put("user", userVO);
 

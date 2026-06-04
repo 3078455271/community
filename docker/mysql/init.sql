@@ -13,11 +13,57 @@ CREATE TABLE IF NOT EXISTS `user` (
     `avatar` VARCHAR(255),
     `email` VARCHAR(100),
     `status` TINYINT DEFAULT 1 COMMENT '0-禁用 1-正常',
+    `role` VARCHAR(20) DEFAULT 'USER' COMMENT 'USER/MODERATOR/ADMIN',
+    `muted_until` DATETIME DEFAULT NULL COMMENT '禁言截止时间',
     `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
     `updated_at` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     `deleted` TINYINT DEFAULT 0,
     PRIMARY KEY (`id`),
     INDEX `idx_username` (`username`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 举报表
+CREATE TABLE IF NOT EXISTS `report` (
+    `id` BIGINT NOT NULL AUTO_INCREMENT,
+    `reporter_id` BIGINT NOT NULL,
+    `target_type` VARCHAR(20) NOT NULL COMMENT 'POST/COMMENT/USER',
+    `target_id` BIGINT NOT NULL,
+    `reason` VARCHAR(500) NOT NULL,
+    `status` TINYINT DEFAULT 0 COMMENT '0-待处理 1-已通过 2-已驳回',
+    `handled_by` BIGINT DEFAULT NULL,
+    `handle_remark` VARCHAR(500) DEFAULT NULL,
+    `handled_at` DATETIME DEFAULT NULL,
+    `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (`id`),
+    INDEX `idx_status` (`status`),
+    INDEX `idx_target` (`target_type`, `target_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 敏感词表
+CREATE TABLE IF NOT EXISTS `sensitive_word` (
+    `id` BIGINT NOT NULL AUTO_INCREMENT,
+    `word` VARCHAR(100) NOT NULL,
+    `enabled` TINYINT DEFAULT 1,
+    `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
+    `updated_at` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    `deleted` TINYINT DEFAULT 0,
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uk_word` (`word`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 审计日志表
+CREATE TABLE IF NOT EXISTS `audit_log` (
+    `id` BIGINT NOT NULL AUTO_INCREMENT,
+    `operator_id` BIGINT DEFAULT NULL,
+    `operator_name` VARCHAR(50) DEFAULT NULL,
+    `action` VARCHAR(50) NOT NULL,
+    `target_type` VARCHAR(30) DEFAULT NULL,
+    `target_id` BIGINT DEFAULT NULL,
+    `detail` VARCHAR(1000) DEFAULT NULL,
+    `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (`id`),
+    INDEX `idx_operator_id` (`operator_id`),
+    INDEX `idx_created_at` (`created_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- 帖子表
@@ -31,6 +77,7 @@ CREATE TABLE IF NOT EXISTS `post` (
     `like_count` INT DEFAULT 0,
     `comment_count` INT DEFAULT 0,
     `status` TINYINT DEFAULT 1 COMMENT '0-草稿 1-已发布 2-置顶',
+    `essence` TINYINT(1) DEFAULT 0 COMMENT '是否精华',
     `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
     `updated_at` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     `deleted` TINYINT DEFAULT 0,
@@ -40,6 +87,18 @@ CREATE TABLE IF NOT EXISTS `post` (
     INDEX `idx_created_at` (`created_at`),
     FULLTEXT INDEX `ft_title_content` (`title`, `content`),
     FOREIGN KEY (`user_id`) REFERENCES `user`(`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 浏览历史表
+CREATE TABLE IF NOT EXISTS `post_view_history` (
+    `id` BIGINT NOT NULL AUTO_INCREMENT,
+    `user_id` BIGINT NOT NULL,
+    `post_id` BIGINT NOT NULL,
+    `viewed_at` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uk_user_post` (`user_id`, `post_id`),
+    INDEX `idx_user_viewed_at` (`user_id`, `viewed_at`),
+    INDEX `idx_post_id` (`post_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- 分类表
@@ -128,6 +187,75 @@ CREATE TABLE IF NOT EXISTS `post_favorite` (
     FOREIGN KEY (`user_id`) REFERENCES `user`(`id`),
     FOREIGN KEY (`post_id`) REFERENCES `post`(`id`),
     FOREIGN KEY (`folder_id`) REFERENCES `favorite_folder`(`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 标签表
+CREATE TABLE IF NOT EXISTS `tag` (
+    `id` BIGINT NOT NULL AUTO_INCREMENT,
+    `name` VARCHAR(50) NOT NULL,
+    `post_count` INT DEFAULT 0,
+    `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
+    `updated_at` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    `deleted` TINYINT DEFAULT 0,
+    PRIMARY KEY (`id`),
+    UNIQUE INDEX `uk_name` (`name`),
+    INDEX `idx_post_count` (`post_count`, `deleted`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 帖子标签关系表
+CREATE TABLE IF NOT EXISTS `post_tag` (
+    `id` BIGINT NOT NULL AUTO_INCREMENT,
+    `post_id` BIGINT NOT NULL,
+    `tag_id` BIGINT NOT NULL,
+    `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (`id`),
+    UNIQUE INDEX `uk_post_tag` (`post_id`, `tag_id`),
+    INDEX `idx_tag_id` (`tag_id`),
+    FOREIGN KEY (`post_id`) REFERENCES `post`(`id`),
+    FOREIGN KEY (`tag_id`) REFERENCES `tag`(`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 私信消息表
+CREATE TABLE IF NOT EXISTS `chat_message` (
+    `id` BIGINT NOT NULL AUTO_INCREMENT,
+    `sender_id` BIGINT NOT NULL,
+    `receiver_id` BIGINT NOT NULL,
+    `content` VARCHAR(1000) NOT NULL,
+    `is_read` TINYINT(1) DEFAULT 0,
+    `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (`id`),
+    INDEX `idx_sender_receiver` (`sender_id`, `receiver_id`, `created_at`),
+    INDEX `idx_receiver_read` (`receiver_id`, `is_read`),
+    FOREIGN KEY (`sender_id`) REFERENCES `user`(`id`),
+    FOREIGN KEY (`receiver_id`) REFERENCES `user`(`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 用户积分表
+CREATE TABLE IF NOT EXISTS `user_point` (
+    `id` BIGINT NOT NULL AUTO_INCREMENT,
+    `user_id` BIGINT NOT NULL,
+    `points` INT DEFAULT 0,
+    `level` INT DEFAULT 1,
+    `sign_in_days` INT DEFAULT 0,
+    `last_sign_in_at` DATETIME DEFAULT NULL,
+    `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
+    `updated_at` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (`id`),
+    UNIQUE INDEX `uk_user_id` (`user_id`),
+    FOREIGN KEY (`user_id`) REFERENCES `user`(`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 积分流水表
+CREATE TABLE IF NOT EXISTS `point_log` (
+    `id` BIGINT NOT NULL AUTO_INCREMENT,
+    `user_id` BIGINT NOT NULL,
+    `action` VARCHAR(30) NOT NULL,
+    `points` INT NOT NULL,
+    `description` VARCHAR(100),
+    `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (`id`),
+    INDEX `idx_user_id` (`user_id`, `created_at`),
+    FOREIGN KEY (`user_id`) REFERENCES `user`(`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- 通知表

@@ -3,6 +3,8 @@ package xyz.haimianxiaozi.dto;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
 
+import java.util.List;
+
 @Data
 public class PostDraftDTO {
 
@@ -12,4 +14,6 @@ public class PostDraftDTO {
     private String content;
 
     private Long categoryId;
+
+    private List<String> tags;
 }

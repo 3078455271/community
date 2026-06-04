@@ -23,6 +23,10 @@ public class User {
 
     private Integer status;
 
+    private String role;
+
+    private LocalDateTime mutedUntil;
+
     @TableField(fill = FieldFill.INSERT)
     private LocalDateTime createdAt;
 
