@@ -5,6 +5,11 @@
         <div class="card-header">
           <div class="header-left">
             <span>帖子列表</span>
+            <el-segmented
+              v-model="feedType"
+              :options="feedOptions"
+              style="margin-left: 15px;"
+            />
             <el-select v-model="categoryId" placeholder="全部分类" clearable style="margin-left: 15px; width: 150px;">
               <el-option v-for="cat in categories" :key="cat.id" :label="cat.name" :value="cat.id" />
             </el-select>
@@ -62,6 +67,11 @@ const page = ref(1)
 const size = ref(10)
 const total = ref(0)
 const categoryId = ref<number | null>(null)
+const feedType = ref<'all' | 'following'>('all')
+const feedOptions = [
+  { label: '全部', value: 'all' },
+  { label: '关注', value: 'following' }
+]
 
 const formatDate = (date: string) => {
   if (!date) return ''
@@ -80,13 +90,22 @@ const fetchCategories = async () => {
 }
 
 const fetchPosts = async () => {
+  if (feedType.value === 'following' && !userStore.isLoggedIn) {
+    posts.value = []
+    total.value = 0
+    ElMessage.warning('请先登录后查看关注流')
+    navigateTo('/login')
+    return
+  }
+
   loading.value = true
   try {
     const params: Record<string, number> = { page: page.value, size: size.value }
-    if (categoryId.value) {
+    if (categoryId.value && feedType.value === 'all') {
       params.categoryId = categoryId.value
     }
-    const res = await api.get<ApiResponse<PageData<PostInfo>>>('/posts', { params })
+    const url = feedType.value === 'following' ? '/posts/following' : '/posts'
+    const res = await api.get<ApiResponse<PageData<PostInfo>>>(url, params)
     if (res.code === 200) {
       posts.value = res.data.records
       total.value = res.data.total
@@ -108,6 +127,11 @@ const handleCreate = () => {
 }
 
 watch(categoryId, () => {
+  page.value = 1
+  fetchPosts()
+})
+
+watch(feedType, () => {
   page.value = 1
   fetchPosts()
 })

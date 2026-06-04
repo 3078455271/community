@@ -17,5 +17,7 @@ public class PostVO {
     private Integer viewCount;
     private Integer likeCount;
     private Integer commentCount;
+    private Integer status;
     private LocalDateTime createdAt;
+    private LocalDateTime updatedAt;
 }

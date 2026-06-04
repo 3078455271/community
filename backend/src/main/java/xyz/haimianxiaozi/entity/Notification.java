@@ -18,7 +18,7 @@ public class Notification {
     /** 接收用户ID */
     private Long userId;
 
-    /** 通知类型：LIKE, COMMENT, SYSTEM */
+    /** 通知类型：LIKE, COMMENT, FOLLOW, MENTION, SYSTEM */
     private String type;
 
     /** 通知内容 */

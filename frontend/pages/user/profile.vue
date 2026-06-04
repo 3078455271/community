@@ -93,48 +93,94 @@
         </el-card>
       </el-col>
 
-      <!-- 右侧：我的帖子 -->
+      <!-- 右侧：内容管理 -->
       <el-col :span="16">
         <el-card>
           <template #header>
             <div class="card-header">
-              <span>我的帖子</span>
+              <span>内容管理</span>
               <el-button type="primary" size="small" @click="navigateTo('/posts/create')">
                 发布帖子
               </el-button>
             </div>
           </template>
 
-          <el-table :data="myPosts" v-loading="loadingPosts" style="width: 100%">
-            <el-table-column prop="title" label="标题" min-width="200">
-              <template #default="{ row }">
-                <el-link type="primary" @click="navigateTo(`/posts/${row.id}`)">
-                  {{ row.title }}
-                </el-link>
-              </template>
-            </el-table-column>
-            <el-table-column prop="categoryName" label="分类" width="100" />
-            <el-table-column prop="viewCount" label="浏览" width="80" />
-            <el-table-column prop="likeCount" label="点赞" width="80" />
-            <el-table-column prop="commentCount" label="评论" width="80" />
-            <el-table-column label="发布时间" width="160">
-              <template #default="{ row }">
-                {{ formatDate(row.createdAt) }}
-              </template>
-            </el-table-column>
-            <el-table-column label="操作" width="120">
-              <template #default="{ row }">
-                <el-button text type="primary" size="small" @click="navigateTo(`/posts/${row.id}`)">
-                  查看
-                </el-button>
-                <el-button text type="danger" size="small" @click="handleDelete(row.id)">
-                  删除
-                </el-button>
-              </template>
-            </el-table-column>
-          </el-table>
+          <el-tabs v-model="activeTab">
+            <el-tab-pane label="我的帖子" name="posts">
+              <el-table :data="myPosts" v-loading="loadingPosts" style="width: 100%">
+                <el-table-column prop="title" label="标题" min-width="200">
+                  <template #default="{ row }">
+                    <el-link type="primary" @click="navigateTo(`/posts/${row.id}`)">
+                      {{ row.title }}
+                    </el-link>
+                  </template>
+                </el-table-column>
+                <el-table-column prop="categoryName" label="分类" width="100" />
+                <el-table-column prop="viewCount" label="浏览" width="80" />
+                <el-table-column prop="likeCount" label="点赞" width="80" />
+                <el-table-column prop="commentCount" label="评论" width="80" />
+                <el-table-column label="发布时间" width="160">
+                  <template #default="{ row }">
+                    {{ formatDate(row.createdAt) }}
+                  </template>
+                </el-table-column>
+                <el-table-column label="操作" width="120">
+                  <template #default="{ row }">
+                    <el-button text type="primary" size="small" @click="navigateTo(`/posts/${row.id}`)">
+                      查看
+                    </el-button>
+                    <el-button text type="danger" size="small" @click="handleDelete(row.id)">
+                      删除
+                    </el-button>
+                  </template>
+                </el-table-column>
+              </el-table>
 
-          <el-empty v-if="!loadingPosts && myPosts.length === 0" description="暂无帖子" />
+              <el-empty v-if="!loadingPosts && myPosts.length === 0" description="暂无帖子" />
+            </el-tab-pane>
+
+            <el-tab-pane label="我的收藏" name="favorites">
+              <div class="favorite-toolbar">
+                <el-select v-model="favoriteFolderId" placeholder="全部收藏夹" clearable style="width: 180px;">
+                  <el-option v-for="folder in favoriteFolders" :key="folder.id" :label="folder.name" :value="folder.id" />
+                </el-select>
+                <el-button @click="handleCreateFolder">新建收藏夹</el-button>
+              </div>
+
+              <el-table :data="favoritePosts" v-loading="loadingFavorites" style="width: 100%">
+                <el-table-column prop="title" label="标题" min-width="220">
+                  <template #default="{ row }">
+                    <el-link type="primary" @click="navigateTo(`/posts/${row.id}`)">
+                      {{ row.title }}
+                    </el-link>
+                  </template>
+                </el-table-column>
+                <el-table-column prop="categoryName" label="分类" width="100" />
+                <el-table-column prop="nickname" label="作者" width="120">
+                  <template #default="{ row }">
+                    {{ row.nickname || row.username }}
+                  </template>
+                </el-table-column>
+                <el-table-column label="发布时间" width="160">
+                  <template #default="{ row }">
+                    {{ formatDate(row.createdAt) }}
+                  </template>
+                </el-table-column>
+                <el-table-column label="操作" width="120">
+                  <template #default="{ row }">
+                    <el-button text type="primary" size="small" @click="navigateTo(`/posts/${row.id}`)">
+                      查看
+                    </el-button>
+                    <el-button text type="danger" size="small" @click="handleUnfavorite(row.id)">
+                      取消收藏
+                    </el-button>
+                  </template>
+                </el-table-column>
+              </el-table>
+
+              <el-empty v-if="!loadingFavorites && favoritePosts.length === 0" description="暂无收藏" />
+            </el-tab-pane>
+          </el-tabs>
         </el-card>
       </el-col>
     </el-row>
@@ -143,10 +189,11 @@
 
 <script setup lang="ts">
 import type { FormInstance, FormRules } from 'element-plus'
-import type { PostInfo, UserInfo, ApiResponse, PageData } from '~/types'
+import type { PostInfo, UserInfo, ApiResponse, PageData, FavoriteFolderInfo } from '~/types'
 
 const api = useApi()
 const userStore = useUserStore()
+const activeTab = ref('posts')
 
 // 个人信息表单
 const profileFormRef = ref<FormInstance>()
@@ -201,6 +248,12 @@ const passwordRules: FormRules = {
 const myPosts = ref<PostInfo[]>([])
 const loadingPosts = ref(true)
 
+// 我的收藏
+const favoriteFolders = ref<FavoriteFolderInfo[]>([])
+const favoritePosts = ref<PostInfo[]>([])
+const favoriteFolderId = ref<number | null>(null)
+const loadingFavorites = ref(false)
+
 const formatDate = (date: string) => {
   if (!date) return ''
   return new Date(date).toLocaleString('zh-CN')
@@ -242,6 +295,37 @@ const fetchMyPosts = async () => {
     console.error('获取帖子列表失败:', error)
   } finally {
     loadingPosts.value = false
+  }
+}
+
+// 获取收藏夹
+const fetchFavoriteFolders = async () => {
+  try {
+    const res = await api.get<ApiResponse<FavoriteFolderInfo[]>>('/favorites/folders')
+    if (res.code === 200) {
+      favoriteFolders.value = res.data
+    }
+  } catch (error) {
+    console.error('获取收藏夹失败:', error)
+  }
+}
+
+// 获取收藏帖子
+const fetchFavoritePosts = async () => {
+  loadingFavorites.value = true
+  try {
+    const params: Record<string, number> = { page: 1, size: 100 }
+    if (favoriteFolderId.value) {
+      params.folderId = favoriteFolderId.value
+    }
+    const res = await api.get<ApiResponse<PageData<PostInfo>>>('/favorites/posts', params)
+    if (res.code === 200) {
+      favoritePosts.value = res.data.records
+    }
+  } catch (error) {
+    console.error('获取收藏帖子失败:', error)
+  } finally {
+    loadingFavorites.value = false
   }
 }
 
@@ -315,9 +399,55 @@ const handleDelete = async (id: number) => {
   }
 }
 
+// 新建收藏夹
+const handleCreateFolder = async () => {
+  try {
+    const { value } = await ElMessageBox.prompt('请输入收藏夹名称', '新建收藏夹', {
+      inputPattern: /^.{1,50}$/,
+      inputErrorMessage: '收藏夹名称长度为 1-50 个字符'
+    })
+    const res = await api.post<ApiResponse<number>>('/favorites/folders', { name: value })
+    if (res.code === 200) {
+      ElMessage.success('创建成功')
+      fetchFavoriteFolders()
+    } else {
+      ElMessage.error(res.message || '创建失败')
+    }
+  } catch {
+    // 用户取消
+  }
+}
+
+// 取消收藏
+const handleUnfavorite = async (postId: number) => {
+  try {
+    const res = await api.delete<ApiResponse<string>>(`/favorites/posts/${postId}`)
+    if (res.code === 200) {
+      ElMessage.success('取消收藏成功')
+      fetchFavoritePosts()
+    } else {
+      ElMessage.error(res.message || '取消收藏失败')
+    }
+  } catch {
+    ElMessage.error('取消收藏失败')
+  }
+}
+
+watch(favoriteFolderId, () => {
+  fetchFavoritePosts()
+})
+
+watch(activeTab, (tab) => {
+  if (tab === 'favorites') {
+    fetchFavoriteFolders()
+    fetchFavoritePosts()
+  }
+})
+
 onMounted(() => {
   fetchUserInfo()
   fetchMyPosts()
+  fetchFavoriteFolders()
 })
 </script>
 
@@ -338,5 +468,11 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   align-items: center;
+}
+
+.favorite-toolbar {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 12px;
 }
 </style>

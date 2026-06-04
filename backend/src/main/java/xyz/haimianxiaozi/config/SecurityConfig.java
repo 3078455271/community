@@ -26,7 +26,13 @@ public class SecurityConfig {
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/api/auth/**").permitAll()
+                .requestMatchers("/api/categories/**").permitAll()
+                .requestMatchers("/api/files/**").permitAll()
+                .requestMatchers("/api/notifications/**").permitAll()
                 .requestMatchers("/api/posts/**").permitAll()
+                .requestMatchers("/api/user/**").permitAll()
+                .requestMatchers("/api/users/**").permitAll()
+                .requestMatchers("/api/favorites/**").permitAll()
                 .anyRequest().authenticated()
             );
         return http.build();

@@ -11,6 +11,12 @@ public interface PostServiceExt extends IService<Post> {
 
     PostVO getPostDetail(Long id);
 
+    Page<PostVO> getFollowingPostPage(int page, int size, Long userId);
+
+    Page<PostVO> getDraftPage(int page, int size, Long userId);
+
+    PostVO getDraftDetail(Long id, Long userId);
+
     /**
      * 搜索帖子
      *

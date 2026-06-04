@@ -11,6 +11,7 @@ import xyz.haimianxiaozi.entity.User;
 import xyz.haimianxiaozi.enums.CommonEnums.LikeTargetType;
 import xyz.haimianxiaozi.service.CommentService;
 import xyz.haimianxiaozi.service.LikeService;
+import xyz.haimianxiaozi.service.MentionService;
 import xyz.haimianxiaozi.service.NotificationService;
 import xyz.haimianxiaozi.service.PostService;
 import xyz.haimianxiaozi.service.UserService;
@@ -29,6 +30,7 @@ public class CommentController {
     private final LikeService likeService;
     private final NotificationService notificationService;
     private final UserService userService;
+    private final MentionService mentionService;
     private final UserContext userContext;
 
     @GetMapping
@@ -60,10 +62,12 @@ public class CommentController {
         post.setCommentCount(post.getCommentCount() + 1);
         postService.updateById(post);
 
+        User user = userService.getById(userId);
+        String nickname = getDisplayName(user);
+        mentionService.notifyMentions(dto.getContent(), userId, nickname, postId);
+
         // 发送通知给帖子作者（不通知自己）
         if (!post.getUserId().equals(userId)) {
-            User user = userService.getById(userId);
-            String nickname = user != null ? user.getNickname() : "用户";
             notificationService.sendNotification(
                     post.getUserId(),
                     "COMMENT",
@@ -76,8 +80,6 @@ public class CommentController {
         if (dto.getParentId() != null) {
             Comment parentComment = commentService.getById(dto.getParentId());
             if (parentComment != null && !parentComment.getUserId().equals(userId)) {
-                User user = userService.getById(userId);
-                String nickname = user != null ? user.getNickname() : "用户";
                 notificationService.sendNotification(
                         parentComment.getUserId(),
                         "COMMENT",
@@ -137,7 +139,7 @@ public class CommentController {
             // 发送通知（不通知自己）
             if (!comment.getUserId().equals(userId)) {
                 User user = userService.getById(userId);
-                String nickname = user != null ? user.getNickname() : "用户";
+                String nickname = getDisplayName(user);
                 notificationService.sendNotification(
                         comment.getUserId(),
                         "LIKE",
@@ -170,5 +172,12 @@ public class CommentController {
             return R.ok("取消点赞成功");
         }
         return R.fail("未点赞");
+    }
+
+    private String getDisplayName(User user) {
+        if (user == null) {
+            return "用户";
+        }
+        return user.getNickname() != null && !user.getNickname().isBlank() ? user.getNickname() : user.getUsername();
     }
 }

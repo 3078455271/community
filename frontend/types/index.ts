@@ -43,7 +43,9 @@ export interface PostInfo {
   viewCount: number
   likeCount: number
   commentCount: number
+  status?: number
   createdAt: string
+  updatedAt?: string
 }
 
 /** 分类 */
@@ -84,4 +86,26 @@ export interface NotificationInfo {
   targetId?: number
   isRead: boolean
   createdAt: string
+}
+
+/** 关注状态 */
+export interface FollowStatus {
+  following: boolean
+  followingCount: number
+  followerCount: number
+}
+
+/** 收藏状态 */
+export interface FavoriteStatus {
+  favorited: boolean
+}
+
+/** 收藏夹 */
+export interface FavoriteFolderInfo {
+  id: number
+  userId: number
+  name: string
+  sort: number
+  createdAt: string
+  updatedAt?: string
 }

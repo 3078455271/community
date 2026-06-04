@@ -20,6 +20,19 @@
               <el-icon><View /></el-icon>
               {{ post.viewCount }} 浏览
             </span>
+            <span class="followers" v-if="showFollowButton">
+              {{ followStatus.followerCount }} 粉丝
+            </span>
+            <el-button
+              v-if="showFollowButton"
+              size="small"
+              :type="followStatus.following ? 'primary' : 'default'"
+              :loading="followLoading"
+              @click="handleFollow"
+            >
+              <el-icon><User /></el-icon>
+              {{ followStatus.following ? '已关注' : '关注' }}
+            </el-button>
           </div>
         </div>
       </template>
@@ -30,6 +43,10 @@
         <el-button :type="isLiked ? 'primary' : 'default'" @click="handleLike">
           <el-icon><Star /></el-icon>
           {{ isLiked ? '已点赞' : '点赞' }} ({{ post.likeCount }})
+        </el-button>
+        <el-button :type="favoriteStatus.favorited ? 'primary' : 'default'" :loading="favoriteLoading" @click="handleFavorite">
+          <el-icon><Collection /></el-icon>
+          {{ favoriteStatus.favorited ? '已收藏' : '收藏' }}
         </el-button>
       </div>
     </el-card>
@@ -48,7 +65,7 @@
           v-model="commentContent"
           type="textarea"
           :rows="3"
-          placeholder="写下你的评论..."
+          placeholder="写下你的评论，使用 @用户名 可以提醒对方"
         />
         <el-button type="primary" @click="submitComment" :loading="submitting" style="margin-top: 10px;">
           发表评论
@@ -86,8 +103,8 @@
 </template>
 
 <script setup lang="ts">
-import { User, Timer, View, Star } from '@element-plus/icons-vue'
-import type { PostInfo, CommentInfo } from '~/types'
+import { Collection, User, Timer, View, Star } from '@element-plus/icons-vue'
+import type { PostInfo, CommentInfo, ApiResponse, FollowStatus, FavoriteStatus } from '~/types'
 
 const route = useRoute()
 const api = useApi()
@@ -100,8 +117,27 @@ const commentContent = ref('')
 const submitting = ref(false)
 const replyingTo = ref<CommentInfo | null>(null)
 const isLiked = ref(false)
+const followLoading = ref(false)
+const favoriteLoading = ref(false)
+const followStatus = reactive<FollowStatus>({
+  following: false,
+  followingCount: 0,
+  followerCount: 0
+})
+const favoriteStatus = reactive<FavoriteStatus>({
+  favorited: false
+})
 
 const postId = route.params.id
+
+const showFollowButton = computed(() => {
+  return Boolean(
+    post.value
+      && userStore.isLoggedIn
+      && userStore.userInfo?.id
+      && post.value.userId !== userStore.userInfo.id
+  )
+})
 
 const formatDate = (date: string) => {
   if (!date) return ''
@@ -113,9 +149,38 @@ const fetchPost = async () => {
     const res = await api.get<{ code: number; data: PostInfo }>(`/posts/${postId}`)
     if (res.code === 200) {
       post.value = res.data
+      await Promise.all([fetchFollowStatus(), fetchFavoriteStatus()])
     }
   } catch (error) {
     console.error('获取帖子失败:', error)
+  }
+}
+
+const fetchFavoriteStatus = async () => {
+  if (!post.value || !userStore.isLoggedIn) return
+
+  try {
+    const res = await api.get<ApiResponse<FavoriteStatus>>(`/favorites/posts/${post.value.id}/status`)
+    if (res.code === 200) {
+      favoriteStatus.favorited = res.data.favorited
+    }
+  } catch (error) {
+    console.error('获取收藏状态失败:', error)
+  }
+}
+
+const fetchFollowStatus = async () => {
+  if (!post.value) return
+
+  try {
+    const res = await api.get<ApiResponse<FollowStatus>>(`/users/${post.value.userId}/follow-status`)
+    if (res.code === 200) {
+      followStatus.following = res.data.following
+      followStatus.followingCount = res.data.followingCount
+      followStatus.followerCount = res.data.followerCount
+    }
+  } catch (error) {
+    console.error('获取关注状态失败:', error)
   }
 }
 
@@ -162,9 +227,62 @@ const handleLike = async () => {
   }
 }
 
+const handleFollow = async () => {
+  if (!post.value) return
+  if (!userStore.isLoggedIn) {
+    ElMessage.warning('请先登录')
+    navigateTo('/login')
+    return
+  }
+
+  followLoading.value = true
+  try {
+    const res = followStatus.following
+      ? await api.delete<ApiResponse<string>>(`/users/${post.value.userId}/follow`)
+      : await api.post<ApiResponse<string>>(`/users/${post.value.userId}/follow`)
+    if (res.code === 200) {
+      followStatus.following = !followStatus.following
+      followStatus.followerCount += followStatus.following ? 1 : -1
+      ElMessage.success(res.data || res.message)
+    } else {
+      ElMessage.error(res.message || '操作失败')
+    }
+  } catch (error) {
+    ElMessage.error('操作失败')
+  } finally {
+    followLoading.value = false
+  }
+}
+
+const handleFavorite = async () => {
+  if (!post.value) return
+  if (!userStore.isLoggedIn) {
+    ElMessage.warning('请先登录')
+    navigateTo('/login')
+    return
+  }
+
+  favoriteLoading.value = true
+  try {
+    const res = favoriteStatus.favorited
+      ? await api.delete<ApiResponse<string>>(`/favorites/posts/${post.value.id}`)
+      : await api.post<ApiResponse<string>>(`/favorites/posts/${post.value.id}`, {})
+    if (res.code === 200) {
+      favoriteStatus.favorited = !favoriteStatus.favorited
+      ElMessage.success(res.data || res.message)
+    } else {
+      ElMessage.error(res.message || '操作失败')
+    }
+  } catch (error) {
+    ElMessage.error('操作失败')
+  } finally {
+    favoriteLoading.value = false
+  }
+}
+
 const replyTo = (comment: CommentInfo) => {
   replyingTo.value = comment
-  commentContent.value = `@${comment.nickname || comment.username} `
+  commentContent.value = `@${comment.username} `
 }
 
 const submitComment = async () => {

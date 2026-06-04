@@ -8,15 +8,34 @@ export const useApi = () => {
     : '/api'
 
   const request = async <T>(url: string, options: Record<string, unknown> = {}): Promise<T> => {
+    const headers = { ...(options.headers as Record<string, string> | undefined) }
+    if (import.meta.client) {
+      const token = localStorage.getItem('token')
+      if (token) {
+        headers.Authorization = `Bearer ${token}`
+      }
+    }
+
     const response = await $fetch<T>(url, {
       baseURL,
       ...options,
+      headers,
     })
     return response
   }
 
+  const normalizeParams = (params?: Record<string, unknown>) => {
+    if (params && 'params' in params && Object.keys(params).length === 1) {
+      return params.params as Record<string, unknown>
+    }
+    return params
+  }
+
   return {
-    get: <T>(url: string, params?: Record<string, unknown>) => request<T>(url, { method: 'GET', params }),
+    get: <T>(url: string, params?: Record<string, unknown>) => request<T>(url, {
+      method: 'GET',
+      params: normalizeParams(params),
+    }),
     post: <T>(url: string, body?: unknown) => request<T>(url, { method: 'POST', body }),
     put: <T>(url: string, body?: unknown) => request<T>(url, { method: 'PUT', body }),
     delete: <T>(url: string) => request<T>(url, { method: 'DELETE' }),

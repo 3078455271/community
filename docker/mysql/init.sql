@@ -83,11 +83,58 @@ CREATE TABLE IF NOT EXISTS `like` (
     INDEX `idx_target` (`target_id`, `target_type`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+-- 用户关注表
+CREATE TABLE IF NOT EXISTS `user_follow` (
+    `id` BIGINT NOT NULL AUTO_INCREMENT,
+    `follower_id` BIGINT NOT NULL COMMENT '关注者ID',
+    `following_id` BIGINT NOT NULL COMMENT '被关注者ID',
+    `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
+    `deleted` TINYINT DEFAULT 0,
+    PRIMARY KEY (`id`),
+    UNIQUE INDEX `uk_follower_following` (`follower_id`, `following_id`),
+    INDEX `idx_follower_id` (`follower_id`, `deleted`),
+    INDEX `idx_following_id` (`following_id`, `deleted`),
+    FOREIGN KEY (`follower_id`) REFERENCES `user`(`id`),
+    FOREIGN KEY (`following_id`) REFERENCES `user`(`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 收藏夹表
+CREATE TABLE IF NOT EXISTS `favorite_folder` (
+    `id` BIGINT NOT NULL AUTO_INCREMENT,
+    `user_id` BIGINT NOT NULL,
+    `name` VARCHAR(50) NOT NULL,
+    `sort` INT DEFAULT 0,
+    `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
+    `updated_at` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    `deleted` TINYINT DEFAULT 0,
+    PRIMARY KEY (`id`),
+    INDEX `idx_user_id` (`user_id`, `deleted`),
+    FOREIGN KEY (`user_id`) REFERENCES `user`(`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 帖子收藏表
+CREATE TABLE IF NOT EXISTS `post_favorite` (
+    `id` BIGINT NOT NULL AUTO_INCREMENT,
+    `user_id` BIGINT NOT NULL,
+    `post_id` BIGINT NOT NULL,
+    `folder_id` BIGINT NOT NULL,
+    `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
+    `updated_at` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    `deleted` TINYINT DEFAULT 0,
+    PRIMARY KEY (`id`),
+    UNIQUE INDEX `uk_user_post` (`user_id`, `post_id`),
+    INDEX `idx_user_folder` (`user_id`, `folder_id`, `deleted`),
+    INDEX `idx_post_id` (`post_id`, `deleted`),
+    FOREIGN KEY (`user_id`) REFERENCES `user`(`id`),
+    FOREIGN KEY (`post_id`) REFERENCES `post`(`id`),
+    FOREIGN KEY (`folder_id`) REFERENCES `favorite_folder`(`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 -- 通知表
 CREATE TABLE IF NOT EXISTS `notification` (
     `id` BIGINT NOT NULL AUTO_INCREMENT,
     `user_id` BIGINT NOT NULL,
-    `type` VARCHAR(20) NOT NULL COMMENT 'LIKE/COMMENT/SYSTEM',
+    `type` VARCHAR(20) NOT NULL COMMENT 'LIKE/COMMENT/FOLLOW/MENTION/SYSTEM',
     `content` VARCHAR(500) NOT NULL,
     `target_id` BIGINT,
     `is_read` TINYINT(1) DEFAULT 0,
