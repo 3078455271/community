@@ -49,6 +49,8 @@ export interface PostInfo {
   commentCount: number
   status?: number
   essence?: boolean
+  commentEnabled?: boolean
+  visibility?: 'PUBLIC' | 'FOLLOWERS'
   createdAt: string
   updatedAt?: string
 }

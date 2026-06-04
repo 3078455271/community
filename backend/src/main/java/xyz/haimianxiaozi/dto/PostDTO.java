@@ -19,4 +19,8 @@ public class PostDTO {
     private Long categoryId;
 
     private List<String> tags;
+
+    private Boolean commentEnabled;
+
+    private String visibility;
 }

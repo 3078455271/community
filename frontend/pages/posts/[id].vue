@@ -1,48 +1,53 @@
 <template>
   <div class="post-detail" v-loading="loading">
-    <el-card v-if="post">
-      <template #header>
-        <div class="post-header">
-          <h1>
-            <el-tag v-if="post.status === 2" size="small" type="danger">置顶</el-tag>
-            <el-tag v-if="post.essence" size="small" type="warning">精华</el-tag>
-            {{ post.title }}
-          </h1>
-          <div class="post-meta">
-            <span class="author">
-              <el-icon><User /></el-icon>
-              {{ post.nickname || post.username }}
-            </span>
-            <span class="category">
-              <el-tag size="small">{{ post.categoryName }}</el-tag>
-            </span>
-            <span class="time">
-              <el-icon><Timer /></el-icon>
-              {{ formatDate(post.createdAt) }}
-            </span>
-            <span class="views">
-              <el-icon><View /></el-icon>
-              {{ post.viewCount }} 浏览
-            </span>
-            <span class="followers" v-if="showFollowButton">
-              {{ followStatus.followerCount }} 粉丝
-            </span>
-            <el-button
-              v-if="showFollowButton"
-              size="small"
-              :type="followStatus.following ? 'primary' : 'default'"
-              :loading="followLoading"
-              @click="handleFollow"
-            >
-              <el-icon><User /></el-icon>
-              {{ followStatus.following ? '已关注' : '关注' }}
-            </el-button>
-            <el-button v-if="showFollowButton" size="small" @click="navigateTo(`/chat?targetUserId=${post.userId}`)">
-              私信
-            </el-button>
+    <article v-if="post" class="detail-card">
+      <div class="post-header">
+        <div class="author-card">
+          <UserAvatar :avatar="post.avatar" :nickname="post.nickname" :username="post.username" :size="46" />
+          <div>
+            <strong>{{ post.nickname || post.username }}</strong>
+            <span>{{ formatDate(post.createdAt) }}</span>
           </div>
         </div>
-      </template>
+        <div class="header-actions">
+          <el-tag v-if="post.status === 2" size="small" type="danger">置顶</el-tag>
+          <el-tag v-if="post.essence" size="small" type="warning">精华</el-tag>
+          <el-tag size="small">{{ post.categoryName }}</el-tag>
+          <el-tag v-if="post.visibility === 'FOLLOWERS'" size="small" type="info">仅粉丝可见</el-tag>
+          <el-tag v-if="post.commentEnabled === false" size="small" type="info">评论已关闭</el-tag>
+        </div>
+      </div>
+
+      <h1>{{ post.title }}</h1>
+
+      <div class="post-meta">
+        <span>
+          <el-icon><View /></el-icon>
+          {{ post.viewCount }} 浏览
+        </span>
+        <span>
+          <el-icon><Star /></el-icon>
+          {{ post.likeCount }} 点赞
+        </span>
+        <span>
+          <el-icon><ChatDotRound /></el-icon>
+          {{ post.commentCount }} 评论
+        </span>
+        <span v-if="showFollowButton">{{ followStatus.followerCount }} 粉丝</span>
+      </div>
+
+      <div class="follow-actions" v-if="showFollowButton">
+        <el-button
+          size="small"
+          :type="followStatus.following ? 'primary' : 'default'"
+          :loading="followLoading"
+          @click="handleFollow"
+        >
+          <el-icon><User /></el-icon>
+          {{ followStatus.following ? '已关注' : '关注' }}
+        </el-button>
+        <el-button size="small" @click="navigateTo(`/chat?targetUserId=${post.userId}`)">私信</el-button>
+      </div>
 
       <div class="post-content" v-html="renderMarkdown(post.content)"></div>
 
@@ -75,7 +80,7 @@
           {{ post.essence ? '取消精华' : '设为精华' }}
         </el-button>
       </div>
-    </el-card>
+    </article>
 
     <el-card v-if="relatedPosts.length" class="related-section">
       <template #header>相关帖子</template>
@@ -95,8 +100,7 @@
         </div>
       </template>
 
-      <!-- 发表评论 -->
-      <div class="comment-form">
+      <div v-if="post?.commentEnabled !== false" class="comment-form">
         <el-input
           v-model="commentContent"
           type="textarea"
@@ -107,6 +111,7 @@
           发表评论
         </el-button>
       </div>
+      <el-alert v-else title="该帖子已关闭评论" type="info" show-icon :closable="false" />
 
       <!-- 评论列表 -->
       <div class="comment-list">
@@ -140,7 +145,7 @@
 </template>
 
 <script setup lang="ts">
-import { Collection, User, Timer, View, Star } from '@element-plus/icons-vue'
+import { ChatDotRound, Collection, User, View, Star } from '@element-plus/icons-vue'
 import type { PostInfo, CommentInfo, ApiResponse, FollowStatus, FavoriteStatus } from '~/types'
 import { renderMarkdown } from '~/utils/markdown'
 
@@ -440,19 +445,65 @@ onMounted(async () => {
 </script>
 
 <style scoped>
-.post-header h1 {
+.post-detail {
+  display: grid;
+  gap: 18px;
+}
+
+.detail-card,
+.comment-section {
+  padding: 24px;
+  border: 1px solid #e7eaf0;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.post-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.author-card {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 12px;
+}
+
+.author-card div {
+  display: grid;
+  gap: 4px;
+}
+
+.author-card span {
+  color: #98a0ae;
+  font-size: 13px;
+}
+
+.header-actions {
+  display: flex;
   flex-wrap: wrap;
-  margin: 0 0 15px 0;
-  font-size: 24px;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+h1 {
+  margin: 22px 0 14px;
+  font-size: 28px;
+  line-height: 1.35;
+}
+
+.post-meta,
+.follow-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 14px;
 }
 
 .post-meta {
-  display: flex;
-  gap: 20px;
-  color: #666;
+  color: #7a8290;
   font-size: 14px;
 }
 
@@ -463,6 +514,7 @@ onMounted(async () => {
 }
 
 .post-content {
+  margin-top: 28px;
   line-height: 1.8;
   font-size: 16px;
   min-height: 200px;
@@ -540,7 +592,7 @@ onMounted(async () => {
 }
 
 .comment-section {
-  margin-top: 20px;
+  margin-top: 0 !important;
 }
 
 .comment-form {
@@ -593,5 +645,24 @@ onMounted(async () => {
   border-radius: 4px;
   margin-top: 10px;
   padding: 0 10px;
+}
+
+@media (max-width: 640px) {
+  .detail-card,
+  .comment-section {
+    padding: 16px;
+  }
+
+  .post-header {
+    flex-direction: column;
+  }
+
+  .header-actions {
+    justify-content: flex-start;
+  }
+
+  h1 {
+    font-size: 22px;
+  }
 }
 </style>

@@ -9,11 +9,11 @@ import java.util.List;
 
 public interface PostServiceExt extends IService<Post> {
 
-    Page<PostVO> getPostPage(int page, int size, Long categoryId);
+    Page<PostVO> getPostPage(int page, int size, Long categoryId, Long currentUserId);
 
-    Page<PostVO> getPostPageByTag(int page, int size, Long tagId);
+    Page<PostVO> getPostPageByTag(int page, int size, Long tagId, Long currentUserId);
 
-    PostVO getPostDetail(Long id);
+    PostVO getPostDetail(Long id, Long currentUserId);
 
     Page<PostVO> getFollowingPostPage(int page, int size, Long userId);
 
@@ -29,11 +29,13 @@ public interface PostServiceExt extends IService<Post> {
      * @param keyword   搜索关键词
      * @return 帖子分页
      */
-    Page<PostVO> searchPosts(int page, int size, String keyword);
+    Page<PostVO> searchPosts(int page, int size, String keyword, Long currentUserId);
 
-    List<PostVO> getRelatedPosts(Long id, int limit);
+    List<PostVO> getRelatedPosts(Long id, int limit, Long currentUserId);
 
     void recordViewHistory(Long userId, Long postId);
 
     Page<PostVO> getViewHistory(int page, int size, Long userId);
+
+    boolean canViewPost(Post post, Long currentUserId);
 }

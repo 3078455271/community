@@ -28,6 +28,9 @@ import java.util.List;
 @RequiredArgsConstructor
 public class PostController {
 
+    private static final String VISIBILITY_PUBLIC = "PUBLIC";
+    private static final String VISIBILITY_FOLLOWERS = "FOLLOWERS";
+
     private final PostServiceExt postServiceExt;
     private final LikeService likeService;
     private final NotificationService notificationService;
@@ -45,9 +48,9 @@ public class PostController {
             @RequestParam(required = false) Long categoryId,
             @RequestParam(required = false) Long tagId) {
         if (tagId != null) {
-            return R.ok(postServiceExt.getPostPageByTag(page, size, tagId));
+            return R.ok(postServiceExt.getPostPageByTag(page, size, tagId, userContext.getCurrentUserId()));
         }
-        return R.ok(postServiceExt.getPostPage(page, size, categoryId));
+        return R.ok(postServiceExt.getPostPage(page, size, categoryId, userContext.getCurrentUserId()));
     }
 
     @GetMapping("/search")
@@ -55,7 +58,7 @@ public class PostController {
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "10") int size,
             @RequestParam String keyword) {
-        return R.ok(postServiceExt.searchPosts(page, size, keyword));
+        return R.ok(postServiceExt.searchPosts(page, size, keyword, userContext.getCurrentUserId()));
     }
 
     @GetMapping("/following")
@@ -125,6 +128,7 @@ public class PostController {
         post.setCommentCount(0);
         post.setStatus(0);
         post.setEssence(false);
+        fillPostSettings(post, dto.getCommentEnabled(), dto.getVisibility());
         postServiceExt.save(post);
         tagService.syncPostTags(post.getId(), dto.getTags(), false, false);
         return R.ok(post.getId());
@@ -181,6 +185,7 @@ public class PostController {
         post.setCategoryId(dto.getCategoryId());
         post.setStatus(1);
         post.setEssence(false);
+        fillPostSettings(post, dto.getCommentEnabled(), dto.getVisibility());
         postServiceExt.updateById(post);
         tagService.syncPostTags(post.getId(), dto.getTags(), true, false);
 
@@ -192,7 +197,7 @@ public class PostController {
 
     @GetMapping("/{id}")
     public R<PostVO> detail(@PathVariable Long id) {
-        PostVO vo = postServiceExt.getPostDetail(id);
+        PostVO vo = postServiceExt.getPostDetail(id, userContext.getCurrentUserId());
         if (vo == null) {
             return R.fail("帖子不存在");
         }
@@ -207,7 +212,7 @@ public class PostController {
     public R<List<PostVO>> related(@PathVariable Long id,
                                    @RequestParam(defaultValue = "6") int limit) {
         int safeLimit = Math.min(Math.max(limit, 1), 12);
-        return R.ok(postServiceExt.getRelatedPosts(id, safeLimit));
+        return R.ok(postServiceExt.getRelatedPosts(id, safeLimit, userContext.getCurrentUserId()));
     }
 
     @PostMapping
@@ -232,6 +237,7 @@ public class PostController {
         post.setCommentCount(0);
         post.setStatus(1);
         post.setEssence(false);
+        fillPostSettings(post, dto.getCommentEnabled(), dto.getVisibility());
         postServiceExt.save(post);
         tagService.syncPostTags(post.getId(), dto.getTags(), true, false);
 
@@ -266,6 +272,7 @@ public class PostController {
         post.setTitle(dto.getTitle());
         post.setContent(dto.getContent());
         post.setCategoryId(dto.getCategoryId());
+        fillPostSettings(post, dto.getCommentEnabled(), dto.getVisibility());
         postServiceExt.updateById(post);
         tagService.syncPostTags(post.getId(), dto.getTags(), true, true);
 
@@ -379,6 +386,19 @@ public class PostController {
         post.setTitle(title == null || title.isBlank() ? "未命名草稿" : title);
         post.setContent(dto.getContent() == null ? "" : dto.getContent());
         post.setCategoryId(dto.getCategoryId());
+        fillPostSettings(post, dto.getCommentEnabled(), dto.getVisibility());
+    }
+
+    private void fillPostSettings(Post post, Boolean commentEnabled, String visibility) {
+        post.setCommentEnabled(commentEnabled == null || commentEnabled);
+        post.setVisibility(normalizeVisibility(visibility));
+    }
+
+    private String normalizeVisibility(String visibility) {
+        if (VISIBILITY_FOLLOWERS.equals(visibility)) {
+            return VISIBILITY_FOLLOWERS;
+        }
+        return VISIBILITY_PUBLIC;
     }
 
     private boolean isPublished(Post post) {

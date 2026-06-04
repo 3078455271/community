@@ -16,4 +16,8 @@ public class PostDraftDTO {
     private Long categoryId;
 
     private List<String> tags;
+
+    private Boolean commentEnabled;
+
+    private String visibility;
 }

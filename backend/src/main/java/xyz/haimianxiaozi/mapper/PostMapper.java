@@ -12,11 +12,26 @@ import java.util.List;
 public interface PostMapper extends BaseMapper<Post> {
 
     @Select("""
+            <script>
             SELECT p.*
             FROM post p
             LEFT JOIN user u ON p.user_id = u.id AND u.deleted = 0
             WHERE p.deleted = 0
               AND p.status IN (1, 2)
+              AND (
+                  p.visibility IS NULL
+                  OR p.visibility = 'PUBLIC'
+                  <if test="currentUserId != null">
+                  OR p.user_id = #{currentUserId}
+                  </if>
+                  <if test="followingUserIds != null and followingUserIds.size() > 0">
+                  OR (p.visibility = 'FOLLOWERS' AND p.user_id IN
+                      <foreach collection="followingUserIds" item="id" open="(" separator="," close=")">
+                          #{id}
+                      </foreach>
+                  )
+                  </if>
+              )
               AND (
                   MATCH(p.title, p.content) AGAINST (#{keyword} IN NATURAL LANGUAGE MODE)
                   OR p.title LIKE CONCAT('%', #{keyword}, '%')
@@ -28,17 +43,35 @@ public interface PostMapper extends BaseMapper<Post> {
                      MATCH(p.title, p.content) AGAINST (#{keyword} IN NATURAL LANGUAGE MODE) DESC,
                      p.created_at DESC
             LIMIT #{offset}, #{size}
+            </script>
             """)
     List<Post> searchPublished(@Param("keyword") String keyword,
                                @Param("offset") long offset,
-                               @Param("size") long size);
+                               @Param("size") long size,
+                               @Param("currentUserId") Long currentUserId,
+                               @Param("followingUserIds") List<Long> followingUserIds);
 
     @Select("""
+            <script>
             SELECT COUNT(1)
             FROM post p
             LEFT JOIN user u ON p.user_id = u.id AND u.deleted = 0
             WHERE p.deleted = 0
               AND p.status IN (1, 2)
+              AND (
+                  p.visibility IS NULL
+                  OR p.visibility = 'PUBLIC'
+                  <if test="currentUserId != null">
+                  OR p.user_id = #{currentUserId}
+                  </if>
+                  <if test="followingUserIds != null and followingUserIds.size() > 0">
+                  OR (p.visibility = 'FOLLOWERS' AND p.user_id IN
+                      <foreach collection="followingUserIds" item="id" open="(" separator="," close=")">
+                          #{id}
+                      </foreach>
+                  )
+                  </if>
+              )
               AND (
                   MATCH(p.title, p.content) AGAINST (#{keyword} IN NATURAL LANGUAGE MODE)
                   OR p.title LIKE CONCAT('%', #{keyword}, '%')
@@ -46,6 +79,9 @@ public interface PostMapper extends BaseMapper<Post> {
                   OR u.username LIKE CONCAT('%', #{keyword}, '%')
                   OR u.nickname LIKE CONCAT('%', #{keyword}, '%')
               )
+            </script>
             """)
-    long countSearchPublished(@Param("keyword") String keyword);
+    long countSearchPublished(@Param("keyword") String keyword,
+                              @Param("currentUserId") Long currentUserId,
+                              @Param("followingUserIds") List<Long> followingUserIds);
 }

@@ -1,69 +1,44 @@
 <template>
-  <div class="posts-page">
-    <el-card>
-      <template #header>
-        <div class="card-header">
-          <div class="header-left">
-            <span>帖子列表</span>
-            <el-segmented
-              v-model="feedType"
-              :options="feedOptions"
-              style="margin-left: 15px;"
-            />
-            <el-select v-model="categoryId" placeholder="全部分类" clearable style="margin-left: 15px; width: 150px;">
-              <el-option v-for="cat in categories" :key="cat.id" :label="cat.name" :value="cat.id" />
-            </el-select>
-            <el-select v-model="tagId" placeholder="热门标签" clearable style="margin-left: 15px; width: 150px;">
-              <el-option v-for="tag in hotTags" :key="tag.id" :label="`#${tag.name}`" :value="tag.id" />
-            </el-select>
-          </div>
-          <el-button type="primary" @click="handleCreate">发布帖子</el-button>
-        </div>
-      </template>
-
-      <el-table :data="posts" style="width: 100%" v-loading="loading">
-        <el-table-column prop="title" label="标题" min-width="300">
-          <template #default="{ row }">
-            <NuxtLink :to="`/posts/${row.id}`" class="post-title">{{ row.title }}</NuxtLink>
-            <div class="post-tags" v-if="row.tags?.length">
-              <el-tag v-for="tag in row.tags" :key="tag.id" size="small" effect="plain">
-                #{{ tag.name }}
-              </el-tag>
-            </div>
-          </template>
-        </el-table-column>
-        <el-table-column prop="categoryName" label="分类" width="120" />
-        <el-table-column prop="nickname" label="作者" width="120">
-          <template #default="{ row }">
-            {{ row.nickname || row.username }}
-          </template>
-        </el-table-column>
-        <el-table-column prop="viewCount" label="浏览" width="80" />
-        <el-table-column prop="commentCount" label="评论" width="80" />
-        <el-table-column prop="createdAt" label="发布时间" width="180">
-          <template #default="{ row }">
-            {{ formatDate(row.createdAt) }}
-          </template>
-        </el-table-column>
-      </el-table>
-
-      <div class="pagination" v-if="total > 0">
-        <el-pagination
-          v-model:current-page="page"
-          v-model:page-size="size"
-          :total="total"
-          :page-sizes="[10, 20, 50]"
-          layout="total, sizes, prev, pager, next"
-          @current-change="fetchPosts"
-          @size-change="fetchPosts"
-        />
+  <section class="posts-page">
+    <header class="posts-header">
+      <div>
+        <p class="eyebrow">DISCOVER</p>
+        <h1>发现板块</h1>
       </div>
-    </el-card>
-  </div>
+      <el-button type="primary" @click="handleCreate">发布帖子</el-button>
+    </header>
+
+    <div class="filters">
+      <el-segmented v-model="feedType" :options="feedOptions" />
+      <el-select v-model="categoryId" placeholder="全部分类" clearable>
+        <el-option v-for="cat in categories" :key="cat.id" :label="cat.name" :value="cat.id" />
+      </el-select>
+      <el-select v-model="tagId" placeholder="热门标签" clearable>
+        <el-option v-for="tag in hotTags" :key="tag.id" :label="`#${tag.name}`" :value="tag.id" />
+      </el-select>
+    </div>
+
+    <div class="post-list" v-loading="loading">
+      <PostCard v-for="post in posts" :key="post.id" :post="post" />
+      <el-empty v-if="!loading && posts.length === 0" description="暂无帖子" />
+    </div>
+
+    <div class="pagination" v-if="total > 0">
+      <el-pagination
+        v-model:current-page="page"
+        v-model:page-size="size"
+        :total="total"
+        :page-sizes="[10, 20, 50]"
+        layout="total, sizes, prev, pager, next"
+        @current-change="fetchPosts"
+        @size-change="fetchPosts"
+      />
+    </div>
+  </section>
 </template>
 
 <script setup lang="ts">
-import type { PostInfo, CategoryInfo, ApiResponse, PageData, TagInfo } from '~/types'
+import type { ApiResponse, CategoryInfo, PageData, PostInfo, TagInfo } from '~/types'
 
 const api = useApi()
 const userStore = useUserStore()
@@ -81,20 +56,13 @@ const tagId = ref<number | null>(route.query.tagId ? Number(route.query.tagId) :
 const feedType = ref<'all' | 'following'>('all')
 const feedOptions = [
   { label: '全部', value: 'all' },
-  { label: '关注', value: 'following' }
+  { label: '关注', value: 'following' },
 ]
-
-const formatDate = (date: string) => {
-  if (!date) return ''
-  return new Date(date).toLocaleString('zh-CN')
-}
 
 const fetchCategories = async () => {
   try {
     const res = await api.get<ApiResponse<CategoryInfo[]>>('/categories')
-    if (res.code === 200) {
-      categories.value = res.data
-    }
+    if (res.code === 200) categories.value = res.data
   } catch (error) {
     console.error('获取分类失败:', error)
   }
@@ -103,9 +71,7 @@ const fetchCategories = async () => {
 const fetchHotTags = async () => {
   try {
     const res = await api.get<ApiResponse<TagInfo[]>>('/tags/hot', { limit: 20 })
-    if (res.code === 200) {
-      hotTags.value = res.data
-    }
+    if (res.code === 200) hotTags.value = res.data
   } catch (error) {
     console.error('获取热门标签失败:', error)
   }
@@ -123,12 +89,8 @@ const fetchPosts = async () => {
   loading.value = true
   try {
     const params: Record<string, number> = { page: page.value, size: size.value }
-    if (categoryId.value && feedType.value === 'all') {
-      params.categoryId = categoryId.value
-    }
-    if (tagId.value && feedType.value === 'all') {
-      params.tagId = tagId.value
-    }
+    if (categoryId.value && feedType.value === 'all') params.categoryId = categoryId.value
+    if (tagId.value && feedType.value === 'all') params.tagId = tagId.value
     const url = feedType.value === 'following' ? '/posts/following' : '/posts'
     const res = await api.get<ApiResponse<PageData<PostInfo>>>(url, params)
     if (res.code === 200) {
@@ -151,22 +113,13 @@ const handleCreate = () => {
   navigateTo('/posts/create')
 }
 
-watch(categoryId, () => {
-  page.value = 1
-  fetchPosts()
-})
-
-watch(tagId, () => {
-  page.value = 1
-  fetchPosts()
-})
-
-watch(feedType, () => {
+watch([categoryId, tagId, feedType], () => {
   page.value = 1
   fetchPosts()
 })
 
 onMounted(() => {
+  userStore.loadFromStorage()
   fetchCategories()
   fetchHotTags()
   fetchPosts()
@@ -174,36 +127,64 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.card-header {
+.posts-page {
+  display: grid;
+  gap: 22px;
+}
+
+.posts-header {
   display: flex;
+  align-items: center;
   justify-content: space-between;
-  align-items: center;
+  gap: 18px;
 }
 
-.header-left {
-  display: flex;
-  align-items: center;
+.eyebrow {
+  margin: 0 0 6px;
+  color: #98a0ae;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
 }
 
-.post-title {
-  color: #333;
-  font-weight: 500;
+h1 {
+  margin: 0;
+  font-size: 26px;
 }
 
-.post-title:hover {
-  color: var(--primary-color);
+.filters {
+  display: grid;
+  grid-template-columns: auto minmax(160px, 1fr) minmax(160px, 1fr);
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid #edf0f5;
+  border-radius: 8px;
+  background: #fff;
 }
 
-.post-tags {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin-top: 6px;
+.post-list {
+  display: grid;
+  gap: 16px;
+  min-height: 240px;
 }
 
 .pagination {
-  margin-top: 20px;
   display: flex;
   justify-content: flex-end;
+}
+
+@media (max-width: 720px) {
+  .posts-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .filters {
+    grid-template-columns: 1fr;
+  }
+
+  .pagination {
+    justify-content: center;
+  }
 }
 </style>

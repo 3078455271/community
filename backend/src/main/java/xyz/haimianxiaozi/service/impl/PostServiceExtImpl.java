@@ -34,6 +34,9 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class PostServiceExtImpl extends ServiceImpl<PostMapper, Post> implements PostServiceExt {
 
+    private static final String VISIBILITY_PUBLIC = "PUBLIC";
+    private static final String VISIBILITY_FOLLOWERS = "FOLLOWERS";
+
     private final UserService userService;
     private final CategoryService categoryService;
     private final UserFollowService userFollowService;
@@ -42,8 +45,8 @@ public class PostServiceExtImpl extends ServiceImpl<PostMapper, Post> implements
     private final PostViewHistoryMapper postViewHistoryMapper;
 
     @Override
-    public Page<PostVO> getPostPage(int page, int size, Long categoryId) {
-        LambdaQueryWrapper<Post> wrapper = publishedWrapper();
+    public Page<PostVO> getPostPage(int page, int size, Long categoryId, Long currentUserId) {
+        LambdaQueryWrapper<Post> wrapper = visiblePublishedWrapper(currentUserId);
         if (categoryId != null) {
             wrapper.eq(Post::getCategoryId, categoryId);
         }
@@ -57,7 +60,7 @@ public class PostServiceExtImpl extends ServiceImpl<PostMapper, Post> implements
     }
 
     @Override
-    public Page<PostVO> getPostPageByTag(int page, int size, Long tagId) {
+    public Page<PostVO> getPostPageByTag(int page, int size, Long tagId, Long currentUserId) {
         List<Long> postIds = postTagMapper.selectList(new LambdaQueryWrapper<PostTag>()
                 .select(PostTag::getPostId)
                 .eq(PostTag::getTagId, tagId))
@@ -68,7 +71,7 @@ public class PostServiceExtImpl extends ServiceImpl<PostMapper, Post> implements
             return new Page<>(page, size, 0);
         }
 
-        Page<Post> postPage = page(new Page<>(page, size), publishedWrapper()
+        Page<Post> postPage = page(new Page<>(page, size), visiblePublishedWrapper(currentUserId)
                 .in(Post::getId, postIds)
                 .orderByDesc(Post::getStatus)
                 .orderByDesc(Post::getCreatedAt));
@@ -79,9 +82,9 @@ public class PostServiceExtImpl extends ServiceImpl<PostMapper, Post> implements
     }
 
     @Override
-    public PostVO getPostDetail(Long id) {
+    public PostVO getPostDetail(Long id, Long currentUserId) {
         Post post = getById(id);
-        if (post == null || !isPublished(post)) {
+        if (post == null || !isPublished(post) || !canViewPost(post, currentUserId)) {
             return null;
         }
 
@@ -97,7 +100,7 @@ public class PostServiceExtImpl extends ServiceImpl<PostMapper, Post> implements
             return new Page<>(page, size, 0);
         }
 
-        Page<Post> postPage = page(new Page<>(page, size), publishedWrapper()
+        Page<Post> postPage = page(new Page<>(page, size), visiblePublishedWrapper(userId)
                 .in(Post::getUserId, followingUserIds)
                 .orderByDesc(Post::getStatus)
                 .orderByDesc(Post::getCreatedAt));
@@ -132,15 +135,16 @@ public class PostServiceExtImpl extends ServiceImpl<PostMapper, Post> implements
     }
 
     @Override
-    public Page<PostVO> searchPosts(int page, int size, String keyword) {
+    public Page<PostVO> searchPosts(int page, int size, String keyword, Long currentUserId) {
         if (keyword == null || keyword.trim().isEmpty()) {
             return new Page<>(page, size, 0);
         }
 
         String cleanKeyword = keyword.trim();
         long offset = (long) Math.max(page - 1, 0) * size;
-        List<Post> records = baseMapper.searchPublished(cleanKeyword, offset, size);
-        long total = baseMapper.countSearchPublished(cleanKeyword);
+        List<Long> followingUserIds = visibleFollowingUserIds(currentUserId);
+        List<Post> records = baseMapper.searchPublished(cleanKeyword, offset, size, currentUserId, followingUserIds);
+        long total = baseMapper.countSearchPublished(cleanKeyword, currentUserId, followingUserIds);
         Page<Post> postPage = new Page<>(page, size, total);
         postPage.setRecords(records);
         if (records.isEmpty()) {
@@ -150,9 +154,9 @@ public class PostServiceExtImpl extends ServiceImpl<PostMapper, Post> implements
     }
 
     @Override
-    public List<PostVO> getRelatedPosts(Long id, int limit) {
+    public List<PostVO> getRelatedPosts(Long id, int limit, Long currentUserId) {
         Post current = getById(id);
-        if (current == null || !isPublished(current)) {
+        if (current == null || !isPublished(current) || !canViewPost(current, currentUserId)) {
             return List.of();
         }
 
@@ -175,7 +179,7 @@ public class PostServiceExtImpl extends ServiceImpl<PostMapper, Post> implements
 
         List<Post> related = new ArrayList<>();
         if (!relatedIds.isEmpty()) {
-            related.addAll(list(publishedWrapper()
+            related.addAll(list(visiblePublishedWrapper(currentUserId)
                     .in(Post::getId, relatedIds)
                     .orderByDesc(Post::getStatus)
                     .orderByDesc(Post::getViewCount)
@@ -185,7 +189,7 @@ public class PostServiceExtImpl extends ServiceImpl<PostMapper, Post> implements
         if (related.size() < limit && current.getCategoryId() != null) {
             int remaining = limit - related.size();
             List<Long> existingIds = related.stream().map(Post::getId).collect(Collectors.toList());
-            related.addAll(list(publishedWrapper()
+            related.addAll(list(visiblePublishedWrapper(currentUserId)
                     .eq(Post::getCategoryId, current.getCategoryId())
                     .ne(Post::getId, id)
                     .notIn(!existingIds.isEmpty(), Post::getId, existingIds)
@@ -236,6 +240,7 @@ public class PostServiceExtImpl extends ServiceImpl<PostMapper, Post> implements
         List<Long> postIds = histories.stream().map(PostViewHistory::getPostId).toList();
         Map<Long, Post> postMap = listByIds(postIds).stream()
                 .filter(this::isPublished)
+                .filter(post -> canViewPost(post, userId))
                 .collect(Collectors.toMap(Post::getId, p -> p));
         List<Post> orderedPosts = postIds.stream()
                 .map(postMap::get)
@@ -296,11 +301,46 @@ public class PostServiceExtImpl extends ServiceImpl<PostMapper, Post> implements
         return convertToVOPage(page, 1, 1).getRecords().getFirst();
     }
 
-    private LambdaQueryWrapper<Post> publishedWrapper() {
-        return new LambdaQueryWrapper<Post>().in(Post::getStatus, 1, 2);
+    private LambdaQueryWrapper<Post> visiblePublishedWrapper(Long currentUserId) {
+        LambdaQueryWrapper<Post> wrapper = new LambdaQueryWrapper<Post>().in(Post::getStatus, 1, 2);
+        applyVisibilityFilter(wrapper, currentUserId);
+        return wrapper;
+    }
+
+    private void applyVisibilityFilter(LambdaQueryWrapper<Post> wrapper, Long currentUserId) {
+        List<Long> followingUserIds = visibleFollowingUserIds(currentUserId);
+        wrapper.and(query -> {
+            query.eq(Post::getVisibility, VISIBILITY_PUBLIC).or().isNull(Post::getVisibility);
+            if (currentUserId != null) {
+                query.or().eq(Post::getUserId, currentUserId);
+                if (!followingUserIds.isEmpty()) {
+                    query.or(nested -> nested.eq(Post::getVisibility, VISIBILITY_FOLLOWERS)
+                            .in(Post::getUserId, followingUserIds));
+                }
+            }
+        });
+    }
+
+    private List<Long> visibleFollowingUserIds(Long currentUserId) {
+        return currentUserId == null ? List.of() : userFollowService.listFollowingUserIds(currentUserId);
     }
 
     private boolean isPublished(Post post) {
         return Integer.valueOf(1).equals(post.getStatus()) || Integer.valueOf(2).equals(post.getStatus());
+    }
+
+    @Override
+    public boolean canViewPost(Post post, Long currentUserId) {
+        if (post == null || !isPublished(post)) {
+            return false;
+        }
+        String visibility = post.getVisibility();
+        if (visibility == null || VISIBILITY_PUBLIC.equals(visibility)) {
+            return true;
+        }
+        if (!VISIBILITY_FOLLOWERS.equals(visibility) || currentUserId == null) {
+            return false;
+        }
+        return post.getUserId().equals(currentUserId) || userFollowService.isFollowing(currentUserId, post.getUserId());
     }
 }

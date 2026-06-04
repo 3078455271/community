@@ -1,173 +1,104 @@
 <template>
-  <div class="home-page">
-    <el-row :gutter="20">
-      <el-col :span="16">
-        <el-card class="welcome-card">
-          <template #header>
-            <div class="card-header">
-              <span>欢迎来到 Community Zhuge</span>
-            </div>
-          </template>
-          <p>这是一个技术交流社区，欢迎分享你的知识和经验。</p>
-          <el-button type="primary" @click="navigateTo('/posts')">浏览帖子</el-button>
-        </el-card>
+  <section class="feed-page">
+    <div class="feed-tabs">
+      <button
+        v-for="tab in tabs"
+        :key="tab.value"
+        :class="{ active: feedType === tab.value }"
+        @click="feedType = tab.value"
+      >
+        {{ tab.label }}
+      </button>
+    </div>
 
-        <el-card class="latest-posts" style="margin-top: 20px;">
-          <template #header>
-            <div class="card-header">
-              <span>最新帖子</span>
-            </div>
-          </template>
-          <div v-if="posts.length === 0" class="empty-state">
-            <el-empty description="暂无帖子" />
-          </div>
-          <div v-else>
-            <div v-for="post in posts" :key="post.id" class="post-item">
-              <h3>
-                <NuxtLink :to="`/posts/${post.id}`">{{ post.title }}</NuxtLink>
-              </h3>
-              <p class="post-meta">
-                <span>{{ post.createdAt }}</span>
-                <span>浏览: {{ post.viewCount }}</span>
-              </p>
-            </div>
-          </div>
-        </el-card>
-      </el-col>
-
-      <el-col :span="8">
-        <el-card>
-          <template #header>
-            <div class="card-header">
-              <span>热门分类</span>
-            </div>
-          </template>
-          <div class="categories">
-            <el-tag v-for="cat in categories" :key="cat.id" class="category-tag">
-              {{ cat.name }}
-            </el-tag>
-          </div>
-        </el-card>
-
-        <el-card style="margin-top: 20px;">
-          <template #header>
-            <div class="card-header">
-              <span>社区统计</span>
-            </div>
-          </template>
-          <el-descriptions :column="1" border>
-            <el-descriptions-item label="注册用户">0</el-descriptions-item>
-            <el-descriptions-item label="帖子总数">0</el-descriptions-item>
-            <el-descriptions-item label="今日发帖">0</el-descriptions-item>
-          </el-descriptions>
-        </el-card>
-      </el-col>
-    </el-row>
-  </div>
+    <div class="feed-list" v-loading="loading">
+      <PostCard v-for="post in visiblePosts" :key="post.id" :post="post" />
+      <el-empty v-if="!loading && visiblePosts.length === 0" description="暂无话题" />
+    </div>
+  </section>
 </template>
 
 <script setup lang="ts">
-import type { PostInfo, CategoryInfo, ApiResponse, PageData } from '~/types'
+import type { ApiResponse, PageData, PostInfo } from '~/types'
 
 const api = useApi()
-
+const userStore = useUserStore()
 const posts = ref<PostInfo[]>([])
-const categories = ref<CategoryInfo[]>([
-  { id: 1, name: '技术交流', sort: 1 },
-  { id: 2, name: '问答求助', sort: 2 },
-  { id: 3, name: '项目展示', sort: 3 },
-  { id: 4, name: '资源分享', sort: 4 },
-])
+const loading = ref(false)
+const feedType = ref<'latest' | 'hot' | 'following'>('latest')
 
-const fetchLatestPosts = async () => {
+const tabs = [
+  { label: '最新', value: 'latest' },
+  { label: '热门', value: 'hot' },
+  { label: '关注', value: 'following' },
+] as const
+
+const visiblePosts = computed(() => {
+  if (feedType.value !== 'hot') return posts.value
+  return [...posts.value].sort((left, right) => right.viewCount + right.likeCount - left.viewCount - left.likeCount)
+})
+
+const fetchPosts = async () => {
+  if (feedType.value === 'following' && !userStore.isLoggedIn) {
+    posts.value = []
+    ElMessage.warning('请先登录后查看关注流')
+    navigateTo('/login')
+    return
+  }
+
+  loading.value = true
   try {
-    const res = await api.get<ApiResponse<PageData<PostInfo>>>('/posts', {
-      params: { page: 1, size: 5 }
-    })
+    const url = feedType.value === 'following' ? '/posts/following' : '/posts'
+    const res = await api.get<ApiResponse<PageData<PostInfo>>>(url, { page: 1, size: 12 })
     if (res.code === 200) {
       posts.value = res.data.records
     }
   } catch (error) {
     console.error('获取帖子失败:', error)
+  } finally {
+    loading.value = false
   }
 }
 
-const fetchCategories = async () => {
-  try {
-    const res = await api.get<ApiResponse<CategoryInfo[]>>('/categories')
-    if (res.code === 200) {
-      categories.value = res.data
-    }
-  } catch (error) {
-    console.error('获取分类失败:', error)
-  }
-}
+watch(feedType, fetchPosts)
 
 onMounted(() => {
-  fetchLatestPosts()
-  fetchCategories()
+  userStore.loadFromStorage()
+  fetchPosts()
 })
 </script>
 
 <style scoped>
-.welcome-card {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: #fff;
+.feed-page {
+  display: grid;
+  gap: 24px;
 }
 
-.welcome-card :deep(.el-card__header) {
-  border-bottom: none;
-}
-
-.welcome-card .card-header span {
-  color: #fff;
-  font-size: 18px;
-}
-
-.post-item {
-  padding: 15px 0;
-  border-bottom: 1px solid #eee;
-}
-
-.post-item:last-child {
-  border-bottom: none;
-}
-
-.post-item h3 {
-  margin: 0 0 8px 0;
-}
-
-.post-item h3 a {
-  color: #333;
-}
-
-.post-item h3 a:hover {
-  color: var(--primary-color);
-}
-
-.post-meta {
-  color: #999;
-  font-size: 14px;
-  margin: 0;
-}
-
-.post-meta span {
-  margin-right: 15px;
-}
-
-.categories {
+.feed-tabs {
   display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
+  gap: 22px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid #eef0f4;
 }
 
-.category-tag {
+.feed-tabs button {
+  border: 0;
+  padding: 8px 16px;
+  border-radius: 999px;
+  background: transparent;
+  color: #7a8290;
+  font-weight: 700;
   cursor: pointer;
 }
 
-.card-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
+.feed-tabs button.active {
+  background: #18191f;
+  color: #fff;
+}
+
+.feed-list {
+  display: grid;
+  gap: 18px;
+  min-height: 240px;
 }
 </style>

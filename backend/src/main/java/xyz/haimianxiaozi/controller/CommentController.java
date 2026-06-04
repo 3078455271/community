@@ -15,7 +15,7 @@ import xyz.haimianxiaozi.service.LikeService;
 import xyz.haimianxiaozi.service.MentionService;
 import xyz.haimianxiaozi.service.NotificationService;
 import xyz.haimianxiaozi.service.PointService;
-import xyz.haimianxiaozi.service.PostService;
+import xyz.haimianxiaozi.service.PostServiceExt;
 import xyz.haimianxiaozi.service.UserService;
 import xyz.haimianxiaozi.util.UserContext;
 import xyz.haimianxiaozi.vo.CommentVO;
@@ -28,7 +28,7 @@ import java.util.List;
 public class CommentController {
 
     private final CommentService commentService;
-    private final PostService postService;
+    private final PostServiceExt postServiceExt;
     private final LikeService likeService;
     private final NotificationService notificationService;
     private final UserService userService;
@@ -39,6 +39,10 @@ public class CommentController {
 
     @GetMapping
     public R<List<CommentVO>> list(@PathVariable Long postId) {
+        Post post = postServiceExt.getById(postId);
+        if (!postServiceExt.canViewPost(post, userContext.getCurrentUserId())) {
+            return R.fail("帖子不存在");
+        }
         return R.ok(commentService.getCommentsByPostId(postId));
     }
 
@@ -57,9 +61,12 @@ public class CommentController {
             return R.fail("评论包含敏感词：" + sensitiveWord);
         }
 
-        Post post = postService.getById(postId);
-        if (post == null) {
+        Post post = postServiceExt.getById(postId);
+        if (!postServiceExt.canViewPost(post, userId)) {
             return R.fail("帖子不存在");
+        }
+        if (Boolean.FALSE.equals(post.getCommentEnabled())) {
+            return R.fail("该帖子已关闭评论");
         }
 
         Comment comment = new Comment();
@@ -72,7 +79,7 @@ public class CommentController {
 
         // 更新帖子评论数
         post.setCommentCount(post.getCommentCount() + 1);
-        postService.updateById(post);
+        postServiceExt.updateById(post);
 
         String nickname = getDisplayName(currentUser);
         mentionService.notifyMentions(dto.getContent(), userId, nickname, postId);
@@ -122,10 +129,10 @@ public class CommentController {
         commentService.removeById(id);
 
         // 更新帖子评论数
-        Post post = postService.getById(postId);
+        Post post = postServiceExt.getById(postId);
         if (post != null) {
             post.setCommentCount(Math.max(0, post.getCommentCount() - 1));
-            postService.updateById(post);
+            postServiceExt.updateById(post);
         }
 
         return R.ok("删除成功");

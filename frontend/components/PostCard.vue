@@ -1,123 +1,199 @@
 <template>
-  <div class="post-card" @click="navigateTo(`/posts/${post.id}`)">
-    <div class="post-card-header">
-      <UserAvatar :avatar="post.avatar" :nickname="post.nickname" :username="post.username" :size="36" />
-      <div class="post-meta">
-        <span class="author">{{ post.nickname || post.username }}</span>
-        <span class="time">{{ formatDate(post.createdAt) }}</span>
+  <article class="post-card" @click="navigateTo(`/posts/${post.id}`)">
+    <header class="post-top">
+      <UserAvatar :avatar="post.avatar" :nickname="post.nickname" :username="post.username" :size="42" />
+      <div class="author-block">
+        <div class="author-line">
+          <strong>{{ post.nickname || post.username }}</strong>
+          <span v-if="post.userId" class="owner-badge">楼主</span>
+        </div>
+        <span>{{ formatDate(post.createdAt) }}</span>
       </div>
-      <el-tag v-if="post.status === 2" size="small" type="danger">置顶</el-tag>
-      <el-tag v-if="post.essence" size="small" type="warning">精华</el-tag>
-      <el-tag size="small" class="category-tag">{{ post.categoryName }}</el-tag>
-    </div>
+      <span class="category-chip"># {{ post.categoryName || '技术交流' }}</span>
+    </header>
 
-    <h3 class="post-title">{{ post.title }}</h3>
+    <h2 class="post-title">
+      <span v-if="post.status === 2">📌</span>
+      <span v-if="post.essence">🔥</span>
+      {{ post.title }}
+    </h2>
+
+    <p class="post-excerpt">{{ excerpt }}</p>
 
     <div class="post-tags" v-if="post.tags?.length">
-      <el-tag v-for="tag in post.tags" :key="tag.id" size="small" effect="plain">
-        #{{ tag.name }}
-      </el-tag>
+      <span v-for="tag in post.tags" :key="tag.id">#{{ tag.name }}</span>
     </div>
 
-    <div class="post-stats">
-      <span class="stat-item">
-        <el-icon><View /></el-icon>
-        {{ post.viewCount }}
-      </span>
-      <span class="stat-item">
+    <footer class="post-stats">
+      <span>
         <el-icon><Star /></el-icon>
         {{ post.likeCount }}
       </span>
-      <span class="stat-item">
+      <span>
         <el-icon><ChatDotRound /></el-icon>
         {{ post.commentCount }}
       </span>
-    </div>
-  </div>
+      <span>
+        <el-icon><View /></el-icon>
+        {{ formatCount(post.viewCount) }}
+      </span>
+      <span v-if="post.visibility === 'FOLLOWERS'" class="visibility">仅粉丝</span>
+      <span v-if="post.commentEnabled === false" class="visibility">评论关闭</span>
+    </footer>
+  </article>
 </template>
 
 <script setup lang="ts">
-import { View, Star, ChatDotRound } from '@element-plus/icons-vue'
+import { ChatDotRound, Star, View } from '@element-plus/icons-vue'
 import type { PostInfo } from '~/types'
 
 const props = defineProps<{
   post: PostInfo
 }>()
 
+const excerpt = computed(() => {
+  const text = (props.post.content || '')
+    .replace(/!\[[^\]]*]\([^)]*\)/g, '')
+    .replace(/[#*_`>~\-[\]()]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+  return text || '这个话题还没有摘要，点进去看看完整内容。'
+})
+
 const formatDate = (date: string) => {
   if (!date) return ''
-  return new Date(date).toLocaleString('zh-CN')
+  const target = new Date(date)
+  const diff = Date.now() - target.getTime()
+  if (diff > 0 && diff < 24 * 60 * 60 * 1000) {
+    const hours = Math.max(1, Math.floor(diff / 1000 / 60 / 60))
+    return `${hours}小时前`
+  }
+  return target.toLocaleDateString('zh-CN')
+}
+
+const formatCount = (count: number) => {
+  if (count >= 1000) {
+    return `${(count / 1000).toFixed(1)}k`
+  }
+  return count
 }
 </script>
 
 <style scoped>
 .post-card {
-  padding: 16px;
-  border: 1px solid #eee;
+  padding: 22px;
+  border: 1px solid #e7eaf0;
   border-radius: 8px;
-  margin-bottom: 12px;
+  background: #fff;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: box-shadow 0.2s, transform 0.2s;
 }
 
 .post-card:hover {
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
-  border-color: var(--primary-color);
+  transform: translateY(-1px);
+  box-shadow: 0 12px 28px rgba(18, 24, 38, 0.08);
 }
 
-.post-card-header {
+.post-top {
   display: flex;
   align-items: center;
-  gap: 10px;
-  margin-bottom: 12px;
+  gap: 12px;
 }
 
-.post-meta {
+.author-block {
+  min-width: 0;
   flex: 1;
+  display: grid;
+  gap: 3px;
+  color: #98a0ae;
+  font-size: 13px;
+}
+
+.author-line {
   display: flex;
-  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  color: #121826;
 }
 
-.author {
-  font-size: 14px;
-  font-weight: 500;
-  color: #333;
-}
-
-.time {
+.owner-badge,
+.category-chip,
+.visibility {
+  border-radius: 6px;
   font-size: 12px;
-  color: #999;
+  font-weight: 700;
 }
 
-.category-tag {
-  margin-left: auto;
+.owner-badge {
+  color: #98a0ae;
+}
+
+.category-chip {
+  padding: 6px 10px;
+  background: #eff5ff;
+  color: #2563eb;
 }
 
 .post-title {
-  font-size: 16px;
-  font-weight: 500;
-  color: #333;
-  margin: 0 0 12px 0;
-  line-height: 1.5;
+  margin: 18px 0 10px;
+  font-size: 20px;
+  line-height: 1.35;
+  font-weight: 800;
 }
 
-.post-stats {
-  display: flex;
-  gap: 16px;
+.post-excerpt {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  margin: 0;
+  color: #5d6472;
+  line-height: 1.7;
 }
 
 .post-tags {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
-  margin: -4px 0 12px;
+  gap: 8px;
+  margin-top: 14px;
+  color: #2563eb;
+  font-size: 13px;
 }
 
-.stat-item {
+.post-stats {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 18px;
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px solid #f0f2f5;
+  color: #98a0ae;
   font-size: 13px;
-  color: #666;
+}
+
+.post-stats span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.visibility {
+  padding: 3px 8px;
+  background: #f4f6fa;
+  color: #5d6472;
+}
+
+@media (max-width: 640px) {
+  .post-card {
+    padding: 16px;
+  }
+
+  .post-title {
+    font-size: 17px;
+  }
+
+  .category-chip {
+    display: none;
+  }
 }
 </style>

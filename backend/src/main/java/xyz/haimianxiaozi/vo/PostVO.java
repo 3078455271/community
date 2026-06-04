@@ -21,6 +21,8 @@ public class PostVO {
     private Integer commentCount;
     private Integer status;
     private Boolean essence;
+    private Boolean commentEnabled;
+    private String visibility;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }

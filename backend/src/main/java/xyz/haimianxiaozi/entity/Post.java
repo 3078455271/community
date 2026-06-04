@@ -29,6 +29,10 @@ public class Post {
 
     private Boolean essence;
 
+    private Boolean commentEnabled;
+
+    private String visibility;
+
     @TableField(fill = FieldFill.INSERT)
     private LocalDateTime createdAt;
 
