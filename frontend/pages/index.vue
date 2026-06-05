@@ -71,34 +71,39 @@ onMounted(() => {
 <style scoped>
 .feed-page {
   display: grid;
-  gap: 24px;
+  gap: var(--space-lg);
 }
 
 .feed-tabs {
   display: flex;
-  gap: 22px;
-  padding-bottom: 20px;
-  border-bottom: 1px solid #eef0f4;
+  gap: var(--space-md);
+  padding-bottom: var(--space-md);
+  border-bottom: 1px solid var(--soft-border-color);
 }
 
 .feed-tabs button {
   border: 0;
   padding: 8px 16px;
-  border-radius: 999px;
+  border-radius: var(--radius-full);
   background: transparent;
-  color: #7a8290;
+  color: var(--muted-text-color);
   font-weight: 700;
   cursor: pointer;
+  transition: background-color 0.2s, color 0.2s;
+}
+
+.feed-tabs button:hover {
+  color: var(--text-color);
 }
 
 .feed-tabs button.active {
-  background: #18191f;
-  color: #fff;
+  background: var(--inverse-bg-color);
+  color: var(--inverse-text-color);
 }
 
 .feed-list {
   display: grid;
-  gap: 18px;
+  gap: var(--space-md);
   min-height: 240px;
 }
 </style>

@@ -30,6 +30,20 @@
 
       <div class="sidebar-footer">
         <div class="divider"></div>
+
+        <!-- 侧边栏底部：登录/退出区域 -->
+        <div class="sidebar-auth" v-if="!userStore.isLoggedIn">
+          <el-button type="primary" class="sidebar-auth-btn" @click="navigateTo('/login')">登录</el-button>
+          <el-button class="sidebar-auth-btn" @click="navigateTo('/register')">注册</el-button>
+        </div>
+        <div class="sidebar-auth" v-else>
+          <div class="sidebar-user-info">
+            <el-icon><User /></el-icon>
+            <span>{{ displayName }}</span>
+          </div>
+          <el-button text type="danger" size="small" @click="handleLogout">退出登录</el-button>
+        </div>
+
         <div class="theme-row">
           <span>
             <el-icon><Moon /></el-icon>
@@ -45,7 +59,15 @@
         <span class="brand-mark">M</span>
         <span>HeidanForum</span>
       </NuxtLink>
-      <el-button type="primary" size="small" @click="handleCreate">发布</el-button>
+      <div class="mobile-header-actions">
+        <el-button size="small" @click="handleCreate">发布</el-button>
+        <template v-if="userStore.isLoggedIn">
+          <el-button size="small" text type="danger" @click="handleLogout">退出</el-button>
+        </template>
+        <template v-else>
+          <el-button size="small" type="primary" @click="navigateTo('/login')">登录</el-button>
+        </template>
+      </div>
     </header>
 
     <main class="forum-main">
@@ -53,11 +75,17 @@
     </main>
 
     <aside class="forum-rightbar">
-      <div class="user-card">
+      <div class="user-card" v-if="userStore.isLoggedIn">
         <p class="spark">✨ 独立开发基地</p>
         <p class="welcome">欢迎回来，{{ displayName }}，今天社区有 12 个新话题，快去打卡吧！</p>
-        <el-button class="checkin-button" type="primary" @click="handleCheckIn">
-          每日签到领积分
+        <el-button
+          class="checkin-button"
+          type="primary"
+          :disabled="signedInToday"
+          :loading="checkingIn"
+          @click="handleCheckIn"
+        >
+          {{ signedInToday ? '今日已签到 ✓' : '每日签到领积分' }}
         </el-button>
       </div>
 
@@ -72,7 +100,10 @@
       </div>
 
       <template v-if="userStore.isLoggedIn">
-        <NotificationBell />
+        <div class="user-actions">
+          <NotificationBell />
+          <el-button text type="danger" size="small" @click="handleLogout">退出登录</el-button>
+        </div>
       </template>
       <div v-else class="auth-card">
         <el-button type="primary" @click="navigateTo('/login')">登录</el-button>
@@ -87,7 +118,20 @@ import { Bell, Compass, HomeFilled, Moon, Plus, Setting, User } from '@element-p
 
 const route = useRoute()
 const userStore = useUserStore()
-const darkTheme = ref(false)
+const darkTheme = ref(
+  import.meta.client ? localStorage.getItem('theme') === 'dark' : false
+)
+const signedInToday = ref(false)
+const checkingIn = ref(false)
+const api = useApi()
+
+// 切换主题时应用到 DOM
+watch(darkTheme, (isDark) => {
+  if (import.meta.client) {
+    document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light')
+    localStorage.setItem('theme', isDark ? 'dark' : 'light')
+  }
+}, { immediate: true })
 const isManager = computed(() => ['ADMIN', 'MODERATOR'].includes(userStore.userInfo?.role || ''))
 const displayName = computed(() => userStore.userInfo?.nickname || userStore.userInfo?.username || '开发者')
 
@@ -118,23 +162,68 @@ const handleCreate = () => {
   navigateTo('/posts/create')
 }
 
-const handleCheckIn = () => {
-  ElMessage.success('今日签到成功')
+const handleCheckIn = async () => {
+  if (signedInToday.value) return
+  checkingIn.value = true
+  try {
+    const res = await api.post<{ code: number; data: { signedInToday: boolean } }>('/points/sign-in')
+    if (res.code === 200) {
+      signedInToday.value = true
+      ElMessage.success('签到成功，积分 +5')
+    } else {
+      ElMessage.error(res.message || '签到失败')
+    }
+  } catch {
+    ElMessage.error('签到失败，请稍后重试')
+  } finally {
+    checkingIn.value = false
+  }
+}
+
+const fetchSignInStatus = async () => {
+  if (!userStore.isLoggedIn) return
+  try {
+    const res = await api.get<{ code: number; data: { signedInToday: boolean } }>('/points/me')
+    if (res.code === 200) {
+      signedInToday.value = res.data.signedInToday
+    }
+  } catch {
+    // 静默失败
+  }
+}
+
+const handleLogout = () => {
+  userStore.logout()
+  ElMessage.success('已退出登录')
+  navigateTo('/')
 }
 
 onMounted(() => {
   userStore.loadFromStorage()
+  fetchSignInStatus()
 })
 </script>
 
 <style scoped>
+/* 主题切换过渡效果 */
+.forum-shell,
+.forum-sidebar,
+.forum-main,
+.forum-rightbar,
+.mobile-header,
+.user-card,
+.trend-card,
+.auth-card {
+  transition: background-color 0.3s, color 0.3s, border-color 0.3s;
+}
+
 .forum-shell {
   min-height: 100vh;
   display: grid;
   grid-template-columns: 280px minmax(0, 760px) 280px;
   justify-content: center;
-  background: #f7f8fb;
-  color: #121826;
+  background: var(--bg-color);
+  color: var(--text-color);
 }
 
 .forum-sidebar {
@@ -142,8 +231,8 @@ onMounted(() => {
   top: 0;
   height: 100vh;
   padding: 26px 24px;
-  border-right: 1px solid #e9ebf0;
-  background: #fff;
+  border-right: 1px solid var(--border-color);
+  background: var(--surface-color);
   display: flex;
   flex-direction: column;
 }
@@ -152,7 +241,7 @@ onMounted(() => {
   display: inline-flex;
   align-items: center;
   gap: 10px;
-  font-size: 20px;
+  font-size: var(--text-xl);
   font-weight: 800;
 }
 
@@ -163,8 +252,8 @@ onMounted(() => {
   align-items: center;
   justify-content: center;
   border-radius: 8px;
-  background: #2f6df6;
-  color: #fff;
+  background: var(--primary-color);
+  color: var(--inverse-text-color);
   font-size: 16px;
 }
 
@@ -180,13 +269,13 @@ onMounted(() => {
   gap: 12px;
   padding: 13px 14px;
   border-radius: 8px;
-  color: #5d6472;
+  color: var(--muted-text-color);
   font-weight: 600;
 }
 
 .nav-item.active {
-  background: #eceef2;
-  color: #2563eb;
+  background: var(--active-bg-color);
+  color: var(--active-text-color);
 }
 
 .create-button {
@@ -205,7 +294,7 @@ onMounted(() => {
 .divider {
   height: 1px;
   margin-bottom: 18px;
-  background: #eceef2;
+  background: var(--divider-color);
 }
 
 .theme-row,
@@ -216,8 +305,8 @@ onMounted(() => {
 
 .theme-row {
   justify-content: space-between;
-  color: #5d6472;
-  font-size: 14px;
+  color: var(--muted-text-color);
+  font-size: var(--text-sm);
 }
 
 .theme-row span {
@@ -227,7 +316,7 @@ onMounted(() => {
 .forum-main {
   min-height: 100vh;
   padding: 28px 24px 60px;
-  background: #fff;
+  background: var(--card-color);
 }
 
 .forum-rightbar {
@@ -235,22 +324,22 @@ onMounted(() => {
   top: 0;
   height: 100vh;
   padding: 22px 24px;
-  border-left: 1px solid #e9ebf0;
-  background: #fff;
+  border-left: 1px solid var(--border-color);
+  background: var(--surface-color);
 }
 
 .user-card,
 .trend-card,
 .auth-card {
-  border: 1px solid #edf0f5;
+  border: 1px solid var(--soft-border-color);
   border-radius: 8px;
-  background: #fff;
+  background: var(--card-color);
 }
 
 .user-card {
   padding: 18px;
   text-align: center;
-  background: #f8f8fa;
+  background: var(--muted-card-color);
 }
 
 .spark {
@@ -260,16 +349,29 @@ onMounted(() => {
 
 .welcome {
   margin: 0 0 12px;
-  color: #98a0ae;
-  font-size: 13px;
+  color: var(--subtle-text-color);
+  font-size: var(--text-xs);
   line-height: 1.6;
 }
 
 .checkin-button {
   width: 100%;
-  border-radius: 8px;
-  background: #18191f;
-  border-color: #18191f;
+  border-radius: var(--radius-md);
+  background: var(--primary-color) !important;
+  border-color: var(--primary-color) !important;
+  color: var(--inverse-text-color) !important;
+  transition: background-color 0.3s, border-color 0.3s, color 0.3s, opacity 0.2s;
+}
+
+.checkin-button:hover {
+  opacity: 0.9;
+}
+
+.checkin-button.is-disabled {
+  background: var(--muted-card-color) !important;
+  border-color: var(--border-color) !important;
+  color: var(--subtle-text-color) !important;
+  opacity: 1;
 }
 
 .trend-card {
@@ -279,7 +381,7 @@ onMounted(() => {
 
 .trend-card h3 {
   margin: 0 0 12px;
-  font-size: 15px;
+  font-size: var(--text-sm);
 }
 
 .trend-card ol {
@@ -294,7 +396,7 @@ onMounted(() => {
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 13px;
+  font-size: var(--text-xs);
 }
 
 .trend-card li span {
@@ -305,13 +407,13 @@ onMounted(() => {
   align-items: center;
   justify-content: center;
   border-radius: 4px;
-  background: #f04040;
+  background: var(--danger-color);
   color: #fff;
-  font-size: 12px;
+  font-size: var(--text-xs);
 }
 
 .trend-card li:nth-child(n + 3) span {
-  background: #98a0ae;
+  background: var(--subtle-text-color);
 }
 
 .trend-card p {
@@ -326,6 +428,49 @@ onMounted(() => {
   gap: 10px;
   margin-top: 18px;
   padding: 14px;
+}
+
+/* 侧边栏底部登录/退出区域 */
+.sidebar-auth {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.sidebar-auth-btn {
+  flex: 1;
+}
+
+.sidebar-user-info {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+  min-width: 0;
+  color: var(--muted-text-color);
+  font-size: var(--text-sm);
+}
+
+.sidebar-user-info span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 右侧栏用户操作区 */
+.user-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 18px;
+}
+
+/* 移动端头部操作区 */
+.mobile-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .mobile-header {
@@ -359,8 +504,8 @@ onMounted(() => {
     align-items: center;
     justify-content: space-between;
     padding: 12px 16px;
-    border-bottom: 1px solid #e9ebf0;
-    background: #fff;
+    border-bottom: 1px solid var(--border-color);
+    background: var(--surface-color);
   }
 
   .forum-main {

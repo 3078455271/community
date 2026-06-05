@@ -82,16 +82,16 @@ const formatCount = (count: number) => {
 <style scoped>
 .post-card {
   padding: 22px;
-  border: 1px solid #e7eaf0;
-  border-radius: 8px;
-  background: #fff;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background: var(--card-color);
   cursor: pointer;
-  transition: box-shadow 0.2s, transform 0.2s;
+  transition: box-shadow 0.2s, transform 0.2s, background-color 0.3s, border-color 0.3s;
 }
 
 .post-card:hover {
   transform: translateY(-1px);
-  box-shadow: 0 12px 28px rgba(18, 24, 38, 0.08);
+  box-shadow: var(--shadow-md);
 }
 
 .post-top {
@@ -105,40 +105,41 @@ const formatCount = (count: number) => {
   flex: 1;
   display: grid;
   gap: 3px;
-  color: #98a0ae;
-  font-size: 13px;
+  color: var(--subtle-text-color);
+  font-size: var(--text-xs);
 }
 
 .author-line {
   display: flex;
   align-items: center;
   gap: 8px;
-  color: #121826;
+  color: var(--text-color);
 }
 
 .owner-badge,
 .category-chip,
 .visibility {
-  border-radius: 6px;
-  font-size: 12px;
+  border-radius: var(--radius-sm);
+  font-size: var(--text-xs);
   font-weight: 700;
 }
 
 .owner-badge {
-  color: #98a0ae;
+  color: var(--subtle-text-color);
 }
 
 .category-chip {
   padding: 6px 10px;
-  background: #eff5ff;
-  color: #2563eb;
+  background: color-mix(in srgb, var(--primary-color) 12%, transparent);
+  color: var(--primary-color);
 }
 
 .post-title {
   margin: 18px 0 10px;
-  font-size: 20px;
+  font-size: var(--text-xl);
   line-height: 1.35;
   font-weight: 800;
+  color: var(--text-color);
 }
 
 .post-excerpt {
@@ -147,7 +148,7 @@ const formatCount = (count: number) => {
   -webkit-box-orient: vertical;
   overflow: hidden;
   margin: 0;
-  color: #5d6472;
+  color: var(--muted-text-color);
   line-height: 1.7;
 }
 
@@ -156,8 +157,8 @@ const formatCount = (count: number) => {
   flex-wrap: wrap;
   gap: 8px;
   margin-top: 14px;
-  color: #2563eb;
-  font-size: 13px;
+  color: var(--active-text-color);
+  font-size: var(--text-xs);
 }
 
 .post-stats {
@@ -166,9 +167,9 @@ const formatCount = (count: number) => {
   gap: 18px;
   margin-top: 18px;
   padding-top: 14px;
-  border-top: 1px solid #f0f2f5;
-  color: #98a0ae;
-  font-size: 13px;
+  border-top: 1px solid var(--soft-border-color);
+  color: var(--subtle-text-color);
+  font-size: var(--text-xs);
 }
 
 .post-stats span {
@@ -179,8 +180,8 @@ const formatCount = (count: number) => {
 
 .visibility {
   padding: 3px 8px;
-  background: #f4f6fa;
-  color: #5d6472;
+  background: var(--muted-card-color);
+  color: var(--muted-text-color);
 }
 
 @media (max-width: 640px) {
@@ -189,7 +190,7 @@ const formatCount = (count: number) => {
   }
 
   .post-title {
-    font-size: 17px;
+    font-size: var(--text-lg);
   }
 
   .category-chip {
