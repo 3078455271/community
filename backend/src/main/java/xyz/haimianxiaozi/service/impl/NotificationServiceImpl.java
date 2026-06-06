@@ -10,10 +10,13 @@ import org.springframework.transaction.annotation.Transactional;
 import xyz.haimianxiaozi.entity.Notification;
 import xyz.haimianxiaozi.mapper.NotificationMapper;
 import xyz.haimianxiaozi.service.NotificationService;
+import xyz.haimianxiaozi.websocket.WebSocketEventPublisher;
 
 @Service
 @RequiredArgsConstructor
 public class NotificationServiceImpl extends ServiceImpl<NotificationMapper, Notification> implements NotificationService {
+
+    private final WebSocketEventPublisher eventPublisher;
 
     @Override
     public Page<Notification> getUserNotifications(Long userId, int page, int size) {
@@ -38,7 +41,12 @@ public class NotificationServiceImpl extends ServiceImpl<NotificationMapper, Not
         wrapper.eq(Notification::getId, id)
                 .eq(Notification::getUserId, userId)
                 .set(Notification::getIsRead, true);
-        return update(wrapper);
+        boolean success = update(wrapper);
+        if (success) {
+            eventPublisher.publish(userId, "notification.read", id);
+            eventPublisher.publishUnreadCount(userId, "notification.unreadCount", getUnreadCount(userId));
+        }
+        return success;
     }
 
     @Override
@@ -48,7 +56,12 @@ public class NotificationServiceImpl extends ServiceImpl<NotificationMapper, Not
         wrapper.eq(Notification::getUserId, userId)
                 .eq(Notification::getIsRead, false)
                 .set(Notification::getIsRead, true);
-        return update(wrapper);
+        boolean success = update(wrapper);
+        if (success) {
+            eventPublisher.publish(userId, "notification.readAll", true);
+            eventPublisher.publishUnreadCount(userId, "notification.unreadCount", 0L);
+        }
+        return success;
     }
 
     @Override
@@ -61,5 +74,7 @@ public class NotificationServiceImpl extends ServiceImpl<NotificationMapper, Not
         notification.setTargetId(targetId);
         notification.setIsRead(false);
         save(notification);
+        eventPublisher.publish(userId, "notification.created", notification);
+        eventPublisher.publishUnreadCount(userId, "notification.unreadCount", getUnreadCount(userId));
     }
 }

@@ -130,6 +130,8 @@
 </template>
 
 <script setup lang="ts">
+definePageMeta({ middleware: 'admin' })
+
 import type {
   ApiResponse,
   AuditLogInfo,
@@ -341,12 +343,6 @@ const handleTabChange = () => {
 }
 
 onMounted(() => {
-  userStore.loadFromStorage()
-  if (!isManager.value) {
-    ElMessage.error('无管理权限')
-    navigateTo('/')
-    return
-  }
   handleTabChange()
 })
 </script>

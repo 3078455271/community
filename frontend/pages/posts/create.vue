@@ -134,6 +134,8 @@
 </template>
 
 <script setup lang="ts">
+definePageMeta({ middleware: 'auth' })
+
 import { ArrowLeft, Connection, EditPen, Picture, Promotion, Refresh } from '@element-plus/icons-vue'
 import type { FormInstance } from 'element-plus'
 import type { ApiResponse, CategoryInfo, PageData, PostInfo, TagInfo } from '~/types'
@@ -376,7 +378,7 @@ watch(form, () => {
 }, { deep: true })
 
 onMounted(async () => {
-  userStore.loadFromStorage()
+  userStore.fetchCurrentUser()
   fetchCategories()
   fetchHotTags()
   if (draftId.value) {

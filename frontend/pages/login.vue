@@ -36,6 +36,7 @@ const formRef = ref()
 const loading = ref(false)
 const api = useApi()
 const userStore = useUserStore()
+const webSocket = useWebSocket()
 
 const form = reactive({
   username: '',
@@ -53,8 +54,8 @@ const handleLogin = async () => {
   try {
     const res = await api.post<ApiResponse<LoginResult>>('/auth/login', form)
     if (res.code === 200) {
-      userStore.setToken(res.data.token)
       userStore.setUserInfo(res.data.user)
+      webSocket.connect()
       ElMessage.success('登录成功')
       navigateTo('/')
     } else {

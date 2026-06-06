@@ -119,7 +119,7 @@ watch([categoryId, tagId, feedType], () => {
 })
 
 onMounted(() => {
-  userStore.loadFromStorage()
+  userStore.fetchCurrentUser()
   fetchCategories()
   fetchHotTags()
   fetchPosts()

@@ -20,7 +20,6 @@ export interface ApiResponse<T = unknown> {
 
 /** 登录响应 */
 export interface LoginResult {
-  token: string
   user: UserInfo
 }
 

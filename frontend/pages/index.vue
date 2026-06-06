@@ -63,7 +63,7 @@ const fetchPosts = async () => {
 watch(feedType, fetchPosts)
 
 onMounted(() => {
-  userStore.loadFromStorage()
+  userStore.fetchCurrentUser()
   fetchPosts()
 })
 </script>

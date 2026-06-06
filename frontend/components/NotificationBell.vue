@@ -38,6 +38,7 @@ import type { NotificationInfo, ApiResponse, PageData } from '~/types'
 
 const api = useApi()
 const userStore = useUserStore()
+const webSocket = useWebSocket()
 
 const notifications = ref<NotificationInfo[]>([])
 const unreadCount = ref(0)
@@ -118,6 +119,36 @@ const handleClick = async (item: NotificationInfo) => {
 onMounted(() => {
   fetchNotifications()
   fetchUnreadCount()
+  webSocket.connect()
+
+  const unsubscribeCreated = webSocket.subscribe<NotificationInfo>('notification.created', (notification) => {
+    notifications.value.unshift(notification)
+  })
+  const unsubscribeUnreadCount = webSocket.subscribe<{ count: number }>('notification.unreadCount', (payload) => {
+    unreadCount.value = payload.count
+  })
+  const unsubscribeRead = webSocket.subscribe<number>('notification.read', (id) => {
+    const notification = notifications.value.find(item => item.id === id)
+    if (notification) {
+      notification.isRead = true
+    }
+  })
+  const unsubscribeReadAll = webSocket.subscribe('notification.readAll', () => {
+    notifications.value.forEach(item => item.isRead = true)
+    unreadCount.value = 0
+  })
+  const unsubscribeConnected = webSocket.subscribe<{ reconnected: boolean }>('websocket.connected', async (payload) => {
+    if (!payload.reconnected) return
+    await Promise.all([fetchNotifications(), fetchUnreadCount()])
+  })
+
+  onBeforeUnmount(() => {
+    unsubscribeCreated()
+    unsubscribeUnreadCount()
+    unsubscribeRead()
+    unsubscribeReadAll()
+    unsubscribeConnected()
+  })
 })
 
 // 暴露刷新方法

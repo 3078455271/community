@@ -13,6 +13,7 @@ import xyz.haimianxiaozi.service.ChatService;
 import xyz.haimianxiaozi.service.UserService;
 import xyz.haimianxiaozi.vo.ChatMessageVO;
 import xyz.haimianxiaozi.vo.ChatSessionVO;
+import xyz.haimianxiaozi.websocket.WebSocketEventPublisher;
 
 import java.util.Comparator;
 import java.util.LinkedHashMap;
@@ -25,6 +26,7 @@ import java.util.stream.Collectors;
 public class ChatServiceImpl extends ServiceImpl<ChatMessageMapper, ChatMessage> implements ChatService {
 
     private final UserService userService;
+    private final WebSocketEventPublisher eventPublisher;
 
     @Override
     public Long sendMessage(Long senderId, Long receiverId, String content) {
@@ -34,6 +36,12 @@ public class ChatServiceImpl extends ServiceImpl<ChatMessageMapper, ChatMessage>
         message.setContent(content);
         message.setIsRead(false);
         save(message);
+        ChatMessageVO messageVO = toMessageVO(message);
+        eventPublisher.publish(receiverId, "chat.message.created", messageVO);
+        eventPublisher.publish(senderId, "chat.message.created", messageVO);
+        eventPublisher.publish(receiverId, "chat.session.updated", toSessionVO(receiverId, senderId, message));
+        eventPublisher.publish(senderId, "chat.session.updated", toSessionVO(senderId, receiverId, message));
+        eventPublisher.publishUnreadCount(receiverId, "chat.unreadCount", getUnreadCount(receiverId));
         return message.getId();
     }
 
@@ -88,6 +96,8 @@ public class ChatServiceImpl extends ServiceImpl<ChatMessageMapper, ChatMessage>
                 .eq(ChatMessage::getReceiverId, currentUserId)
                 .eq(ChatMessage::getIsRead, false)
                 .set(ChatMessage::getIsRead, true));
+        eventPublisher.publish(currentUserId, "chat.message.read", Map.of("targetUserId", targetUserId));
+        eventPublisher.publishUnreadCount(currentUserId, "chat.unreadCount", getUnreadCount(currentUserId));
     }
 
     private ChatSessionVO toSessionVO(Long currentUserId, Long targetUserId, ChatMessage latestMessage) {

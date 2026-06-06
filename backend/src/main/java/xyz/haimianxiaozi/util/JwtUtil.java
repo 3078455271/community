@@ -1,6 +1,7 @@
 package xyz.haimianxiaozi.util;
 
 import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
 import org.springframework.beans.factory.annotation.Value;
@@ -41,9 +42,29 @@ public class JwtUtil {
                 .getPayload();
     }
 
+    public Claims parseTokenSafely(String token) {
+        try {
+            return parseToken(token);
+        } catch (JwtException | IllegalArgumentException e) {
+            return null;
+        }
+    }
+
     public Long getUserId(String token) {
         Claims claims = parseToken(token);
         return Long.parseLong(claims.getSubject());
+    }
+
+    public Long getUserIdSafely(String token) {
+        Claims claims = parseTokenSafely(token);
+        if (claims == null) {
+            return null;
+        }
+        try {
+            return Long.parseLong(claims.getSubject());
+        } catch (NumberFormatException e) {
+            return null;
+        }
     }
 
     public boolean isTokenExpired(String token) {

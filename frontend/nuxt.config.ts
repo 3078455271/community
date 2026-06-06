@@ -6,6 +6,10 @@ declare const process: {
 export default defineNuxtConfig({
   devtools: { enabled: true },
 
+  experimental: {
+    appManifest: false,
+  },
+
   modules: [
     '@element-plus/nuxt',
     '@pinia/nuxt',

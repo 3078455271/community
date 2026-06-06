@@ -1,55 +1,41 @@
-import type { UserInfo } from '~/types'
+import type { ApiResponse, UserInfo } from '~/types'
 
 export const useUserStore = defineStore('user', () => {
-  const token = ref<string>('')
   const userInfo = ref<UserInfo | null>(null)
+  const initialized = ref(false)
 
-  const isLoggedIn = computed(() => !!token.value)
+  const isLoggedIn = computed(() => !!userInfo.value)
+  const isManager = computed(() => ['ADMIN', 'MODERATOR'].includes(userInfo.value?.role || ''))
+  const isAdmin = computed(() => userInfo.value?.role === 'ADMIN')
 
-  const setToken = (newToken: string) => {
-    token.value = newToken
-    if (import.meta.client) {
-      localStorage.setItem('token', newToken)
-    }
-  }
-
-  const setUserInfo = (info: UserInfo) => {
+  const setUserInfo = (info: UserInfo | null) => {
     userInfo.value = info
-    if (import.meta.client) {
-      localStorage.setItem('userInfo', JSON.stringify(info))
-    }
+    initialized.value = true
   }
 
-  const loadFromStorage = () => {
-    if (import.meta.client) {
-      token.value = localStorage.getItem('token') || ''
-      const stored = localStorage.getItem('userInfo')
-      if (stored) {
-        try {
-          userInfo.value = JSON.parse(stored) as UserInfo
-        } catch (e) {
-          userInfo.value = null
-        }
-      }
+  const fetchCurrentUser = async () => {
+    const api = useApi()
+    try {
+      const res = await api.get<ApiResponse<UserInfo>>('/auth/me')
+      setUserInfo(res.code === 200 ? res.data : null)
+    } catch {
+      setUserInfo(null)
     }
+    return userInfo.value
   }
 
   const logout = () => {
-    token.value = ''
-    userInfo.value = null
-    if (import.meta.client) {
-      localStorage.removeItem('token')
-      localStorage.removeItem('userInfo')
-    }
+    setUserInfo(null)
   }
 
   return {
-    token,
     userInfo,
+    initialized,
     isLoggedIn,
-    setToken,
+    isManager,
+    isAdmin,
     setUserInfo,
-    loadFromStorage,
+    fetchCurrentUser,
     logout,
   }
 })

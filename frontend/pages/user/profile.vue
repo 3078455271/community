@@ -245,6 +245,8 @@
 </template>
 
 <script setup lang="ts">
+definePageMeta({ middleware: 'auth' })
+
 import type { FormInstance, FormRules } from 'element-plus'
 import type { PostInfo, UserInfo, ApiResponse, PageData, FavoriteFolderInfo, UserPointInfo } from '~/types'
 

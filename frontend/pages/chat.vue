@@ -62,10 +62,13 @@
 </template>
 
 <script setup lang="ts">
+definePageMeta({ middleware: 'auth' })
+
 import type { ApiResponse, ChatMessageInfo, ChatSessionInfo, PageData } from '~/types'
 
 const api = useApi()
 const userStore = useUserStore()
+const webSocket = useWebSocket()
 const route = useRoute()
 
 const sessions = ref<ChatSessionInfo[]>([])
@@ -136,6 +139,21 @@ const openSession = async (session: ChatSessionInfo) => {
   await fetchMessages()
 }
 
+const upsertSession = (session: ChatSessionInfo) => {
+  const index = sessions.value.findIndex(item => item.userId === session.userId)
+  if (index >= 0) {
+    sessions.value.splice(index, 1)
+  }
+  sessions.value.unshift(session)
+}
+
+const appendMessage = (message: ChatMessageInfo) => {
+  if (!currentTargetId.value) return
+  const belongsToCurrentSession = message.senderId === currentTargetId.value || message.receiverId === currentTargetId.value
+  if (!belongsToCurrentSession || messages.value.some(item => item.id === message.id)) return
+  messages.value.push(message)
+}
+
 const sendMessage = async () => {
   if (!currentTargetId.value || !messageContent.value.trim()) {
     ElMessage.warning('请输入私信内容')
@@ -159,12 +177,33 @@ const sendMessage = async () => {
 }
 
 onMounted(() => {
-  if (!userStore.isLoggedIn) {
-    ElMessage.warning('请先登录')
-    navigateTo('/login')
-    return
-  }
   fetchSessions().then(openTargetFromQuery)
+  webSocket.connect()
+
+  const unsubscribeMessage = webSocket.subscribe<ChatMessageInfo>('chat.message.created', appendMessage)
+  const unsubscribeSession = webSocket.subscribe<ChatSessionInfo>('chat.session.updated', upsertSession)
+  const unsubscribeRead = webSocket.subscribe<{ targetUserId: number }>('chat.message.read', (payload) => {
+    if (currentTargetId.value !== payload.targetUserId) return
+    messages.value.forEach(message => {
+      if (message.receiverId === userStore.userInfo?.id) {
+        message.isRead = true
+      }
+    })
+  })
+  const unsubscribeConnected = webSocket.subscribe<{ reconnected: boolean }>('websocket.connected', async (payload) => {
+    if (!payload.reconnected) return
+    await fetchSessions()
+    if (currentTargetId.value) {
+      await fetchMessages()
+    }
+  })
+
+  onBeforeUnmount(() => {
+    unsubscribeMessage()
+    unsubscribeSession()
+    unsubscribeRead()
+    unsubscribeConnected()
+  })
 })
 </script>
 

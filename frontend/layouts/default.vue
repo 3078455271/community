@@ -124,6 +124,7 @@ const darkTheme = ref(
 const signedInToday = ref(false)
 const checkingIn = ref(false)
 const api = useApi()
+const webSocket = useWebSocket()
 
 // 切换主题时应用到 DOM
 watch(darkTheme, (isDark) => {
@@ -192,14 +193,22 @@ const fetchSignInStatus = async () => {
   }
 }
 
-const handleLogout = () => {
-  userStore.logout()
-  ElMessage.success('已退出登录')
-  navigateTo('/')
+const handleLogout = async () => {
+  try {
+    await api.post('/auth/logout')
+  } finally {
+    webSocket.disconnect()
+    userStore.logout()
+    ElMessage.success('已退出登录')
+    navigateTo('/')
+  }
 }
 
-onMounted(() => {
-  userStore.loadFromStorage()
+onMounted(async () => {
+  await userStore.fetchCurrentUser()
+  if (userStore.isLoggedIn) {
+    webSocket.connect()
+  }
   fetchSignInStatus()
 })
 </script>
