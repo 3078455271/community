@@ -139,7 +139,7 @@ const displayName = computed(() => userStore.userInfo?.nickname || userStore.use
 const navItems = [
   { label: '首页', path: '/', icon: HomeFilled },
   { label: '发现板块', path: '/posts', icon: Compass },
-  { label: '通知中心', path: '/chat', icon: Bell },
+  { label: '通知中心', path: '/notifications', icon: Bell },
   { label: '个人中心', path: '/user/profile', icon: User },
 ]
 
