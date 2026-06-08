@@ -64,6 +64,15 @@ community-zhuge/
 
 启动后端后访问: http://localhost:8080/swagger-ui.html
 
+## 数据库迁移
+
+后端已接入 Flyway，迁移脚本位于 `backend/src/main/resources/db/migration`。
+
+- `V1__init_schema.sql`: 初始化当前完整 schema 和基础分类数据。
+- `V2__ensure_post_publish_settings.sql`: 为早期数据库补齐帖子发布设置字段。
+
+应用启动时默认执行迁移，可通过 `FLYWAY_ENABLED=false` 临时关闭。生产环境建议保持开启，并在发布前备份数据库。
+
 ## License
 
 MIT

@@ -16,6 +16,7 @@ export const useApi = () => {
         ...options,
         credentials: 'include',
         headers,
+        timeout: 10000,
       })
     } catch (error: unknown) {
       const responseStatus = (error as { response?: { status?: number } }).response?.status

@@ -3,7 +3,10 @@
     <aside class="forum-sidebar">
       <NuxtLink to="/" class="brand">
         <span class="brand-mark">M</span>
-        <span>HeidanForum</span>
+        <span>
+          <strong>HeidanForum</strong>
+          <small>Community Zhuge</small>
+        </span>
       </NuxtLink>
 
       <nav class="side-nav">
@@ -27,6 +30,14 @@
         <el-icon><Plus /></el-icon>
         发布新帖子
       </el-button>
+
+      <div class="sidebar-status">
+        <span>社区活跃度</span>
+        <strong>86%</strong>
+        <div class="status-track">
+          <span></span>
+        </div>
+      </div>
 
       <div class="sidebar-footer">
         <div class="divider"></div>
@@ -57,10 +68,13 @@
     <header class="mobile-header">
       <NuxtLink to="/" class="brand">
         <span class="brand-mark">M</span>
-        <span>HeidanForum</span>
+        <span>
+          <strong>HeidanForum</strong>
+          <small>Community Zhuge</small>
+        </span>
       </NuxtLink>
       <div class="mobile-header-actions">
-        <el-button size="small" @click="handleCreate">发布</el-button>
+        <el-button class="mobile-create-button" size="small" :icon="Plus" aria-label="发布" @click="handleCreate" />
         <template v-if="userStore.isLoggedIn">
           <el-button size="small" text type="danger" @click="handleLogout">退出</el-button>
         </template>
@@ -75,9 +89,13 @@
     </main>
 
     <aside class="forum-rightbar">
+      <div class="search-panel">
+        <SearchBox />
+      </div>
+
       <div class="user-card" v-if="userStore.isLoggedIn">
-        <p class="spark">✨ 独立开发基地</p>
-        <p class="welcome">欢迎回来，{{ displayName }}，今天社区有 12 个新话题，快去打卡吧！</p>
+        <p class="spark">独立开发基地</p>
+        <p class="welcome">欢迎回来，{{ displayName }}。今天社区有 12 个新话题，保持连续打卡节奏。</p>
         <el-button
           class="checkin-button"
           type="primary"
@@ -90,13 +108,19 @@
       </div>
 
       <div class="trend-card">
-        <h3>📈 今日热榜</h3>
+        <h3>今日热榜</h3>
         <ol>
           <li v-for="(item, index) in trends" :key="item">
             <span>{{ index + 1 }}</span>
             <p>{{ item }}</p>
           </li>
         </ol>
+      </div>
+
+      <div class="insight-card">
+        <span>运营看板</span>
+        <strong>3.8k</strong>
+        <p>本周内容曝光</p>
       </div>
 
       <template v-if="userStore.isLoggedIn">
@@ -144,7 +168,7 @@ const navItems = [
 ]
 
 const trends = [
-  '英寸开源全栈架构，前端狂喜？',
+  '硬核开源全栈架构，前端狂喜？',
   '独立开发的第二年，我赚到了第一桶金',
   '如何评价今年的大模型应用落地潮？',
 ]
@@ -214,7 +238,6 @@ onMounted(async () => {
 </script>
 
 <style scoped>
-/* 主题切换过渡效果 */
 .forum-shell,
 .forum-sidebar,
 .forum-main,
@@ -222,16 +245,24 @@ onMounted(async () => {
 .mobile-header,
 .user-card,
 .trend-card,
+.insight-card,
+.search-panel,
 .auth-card {
-  transition: background-color 0.3s, color 0.3s, border-color 0.3s;
+  transition:
+    background-color var(--motion-base) var(--ease-standard),
+    color var(--motion-base) var(--ease-standard),
+    border-color var(--motion-base) var(--ease-standard),
+    box-shadow var(--motion-base) var(--ease-standard);
 }
 
 .forum-shell {
   min-height: 100vh;
   display: grid;
-  grid-template-columns: 280px minmax(0, 760px) 280px;
+  grid-template-columns: 280px minmax(0, 820px) 300px;
   justify-content: center;
-  background: var(--bg-color);
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--primary-soft-color) 52%, transparent) 0, transparent 360px),
+    var(--bg-color);
   color: var(--text-color);
 }
 
@@ -241,7 +272,8 @@ onMounted(async () => {
   height: 100vh;
   padding: 26px 24px;
   border-right: 1px solid var(--border-color);
-  background: var(--surface-color);
+  background: color-mix(in srgb, var(--surface-color) 94%, transparent);
+  backdrop-filter: blur(14px);
   display: flex;
   flex-direction: column;
 }
@@ -250,20 +282,38 @@ onMounted(async () => {
   display: inline-flex;
   align-items: center;
   gap: 10px;
-  font-size: var(--text-xl);
-  font-weight: 800;
+  min-width: 0;
+}
+
+.brand > span:last-child {
+  display: grid;
+  gap: 1px;
+}
+
+.brand strong {
+  font-size: var(--text-lg);
+  line-height: 1.1;
+}
+
+.brand small {
+  color: var(--subtle-text-color);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
 }
 
 .brand-mark {
-  width: 28px;
-  height: 28px;
+  width: 34px;
+  height: 34px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   border-radius: 8px;
-  background: var(--primary-color);
+  background: linear-gradient(135deg, var(--primary-color), var(--accent-color));
   color: var(--inverse-text-color);
   font-size: 16px;
+  font-weight: 900;
+  box-shadow: 0 10px 24px color-mix(in srgb, var(--primary-color) 26%, transparent);
 }
 
 .side-nav {
@@ -280,11 +330,23 @@ onMounted(async () => {
   border-radius: 8px;
   color: var(--muted-text-color);
   font-weight: 600;
+  position: relative;
+  transition:
+    background-color var(--motion-base) var(--ease-standard),
+    color var(--motion-base) var(--ease-standard),
+    transform var(--motion-fast) var(--ease-out);
+}
+
+.nav-item:hover {
+  background: var(--muted-card-color);
+  color: var(--text-color);
+  transform: translateX(2px);
 }
 
 .nav-item.active {
   background: var(--active-bg-color);
   color: var(--active-text-color);
+  box-shadow: inset 3px 0 0 var(--primary-color);
 }
 
 .create-button {
@@ -294,6 +356,40 @@ onMounted(async () => {
   border-radius: 8px;
   font-weight: 700;
   box-shadow: 0 10px 18px rgba(47, 109, 246, 0.24);
+}
+
+.sidebar-status {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px 12px;
+  margin-top: 18px;
+  padding: 14px;
+  border: 1px solid var(--soft-border-color);
+  border-radius: 8px;
+  background: var(--card-color);
+  color: var(--muted-text-color);
+  font-size: var(--text-xs);
+}
+
+.sidebar-status strong {
+  color: var(--accent-color);
+}
+
+.status-track {
+  grid-column: 1 / -1;
+  height: 6px;
+  overflow: hidden;
+  border-radius: var(--radius-full);
+  background: var(--muted-card-color);
+}
+
+.status-track span {
+  display: block;
+  width: 86%;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--primary-color), var(--accent-color));
+  animation: status-fill var(--motion-slow) var(--ease-out) both;
 }
 
 .sidebar-footer {
@@ -324,8 +420,8 @@ onMounted(async () => {
 
 .forum-main {
   min-height: 100vh;
-  padding: 28px 24px 60px;
-  background: var(--card-color);
+  padding: 30px 28px 64px;
+  background: color-mix(in srgb, var(--card-color) 92%, transparent);
 }
 
 .forum-rightbar {
@@ -334,21 +430,36 @@ onMounted(async () => {
   height: 100vh;
   padding: 22px 24px;
   border-left: 1px solid var(--border-color);
-  background: var(--surface-color);
+  background: color-mix(in srgb, var(--surface-color) 94%, transparent);
+  backdrop-filter: blur(14px);
 }
 
 .user-card,
 .trend-card,
+.insight-card,
+.search-panel,
 .auth-card {
   border: 1px solid var(--soft-border-color);
   border-radius: 8px;
   background: var(--card-color);
+  box-shadow: var(--shadow-sm);
+}
+
+.search-panel {
+  padding: 12px;
+}
+
+.search-panel :deep(.search-box) {
+  width: 100%;
 }
 
 .user-card {
+  margin-top: 18px;
   padding: 18px;
   text-align: center;
-  background: var(--muted-card-color);
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--primary-soft-color) 72%, transparent), transparent),
+    var(--card-color);
 }
 
 .spark {
@@ -369,7 +480,12 @@ onMounted(async () => {
   background: var(--primary-color) !important;
   border-color: var(--primary-color) !important;
   color: var(--inverse-text-color) !important;
-  transition: background-color 0.3s, border-color 0.3s, color 0.3s, opacity 0.2s;
+  box-shadow: 0 10px 22px color-mix(in srgb, var(--primary-color) 22%, transparent);
+  transition:
+    background-color var(--motion-base) var(--ease-standard),
+    border-color var(--motion-base) var(--ease-standard),
+    color var(--motion-base) var(--ease-standard),
+    opacity var(--motion-fast) var(--ease-standard);
 }
 
 .checkin-button:hover {
@@ -406,6 +522,13 @@ onMounted(async () => {
   align-items: center;
   gap: 8px;
   font-size: var(--text-xs);
+  min-width: 0;
+  transition: transform var(--motion-fast) var(--ease-out), color var(--motion-fast) var(--ease-standard);
+}
+
+.trend-card li:hover {
+  color: var(--primary-color);
+  transform: translateX(2px);
 }
 
 .trend-card li span {
@@ -430,6 +553,31 @@ onMounted(async () => {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.insight-card {
+  margin-top: 18px;
+  padding: 16px;
+}
+
+.insight-card span {
+  color: var(--subtle-text-color);
+  font-size: var(--text-xs);
+  font-weight: 800;
+}
+
+.insight-card strong {
+  display: block;
+  margin-top: 4px;
+  color: var(--text-color);
+  font-size: var(--text-2xl);
+  line-height: 1.1;
+}
+
+.insight-card p {
+  margin: 6px 0 0;
+  color: var(--muted-text-color);
+  font-size: var(--text-xs);
 }
 
 .auth-card {
@@ -480,6 +628,7 @@ onMounted(async () => {
   display: flex;
   align-items: center;
   gap: 6px;
+  flex: 0 0 auto;
 }
 
 .mobile-header {
@@ -512,14 +661,52 @@ onMounted(async () => {
     display: flex;
     align-items: center;
     justify-content: space-between;
+    gap: 10px;
     padding: 12px 16px;
     border-bottom: 1px solid var(--border-color);
     background: var(--surface-color);
   }
 
+  .mobile-header .brand {
+    overflow: hidden;
+  }
+
+  .mobile-header .brand strong {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .mobile-header .brand small {
+    display: none;
+  }
+
+  .mobile-header-actions :deep(.el-button) {
+    min-width: auto;
+    padding-inline: 10px;
+  }
+
+  .mobile-create-button {
+    width: 36px;
+    padding-inline: 0 !important;
+  }
+
   .forum-main {
+    overflow-x: hidden;
     min-height: calc(100vh - 57px);
     padding: 18px 14px 40px;
+  }
+}
+
+@keyframes status-fill {
+  from {
+    transform: scaleX(0.4);
+    transform-origin: left center;
+  }
+
+  to {
+    transform: scaleX(1);
+    transform-origin: left center;
   }
 }
 </style>

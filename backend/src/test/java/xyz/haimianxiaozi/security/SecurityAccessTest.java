@@ -15,7 +15,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @SpringBootTest
 @AutoConfigureMockMvc
-@TestPropertySource(properties = "JWT_SECRET=test-256-bit-secret-key-for-security-tests")
+@TestPropertySource(properties = {
+        "JWT_SECRET=test-256-bit-secret-key-for-security-tests",
+        "spring.flyway.enabled=false"
+})
 class SecurityAccessTest {
 
     @Autowired

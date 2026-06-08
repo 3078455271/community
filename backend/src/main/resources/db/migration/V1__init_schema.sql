@@ -1,12 +1,5 @@
--- 社区论坛数据库初始化脚本
--- Legacy schema snapshot. New environments should use Flyway migrations in
--- backend/src/main/resources/db/migration.
+-- Community Zhuge initial schema managed by Flyway.
 
-CREATE DATABASE IF NOT EXISTS community DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-
-USE community;
-
--- 用户表
 CREATE TABLE IF NOT EXISTS `user` (
     `id` BIGINT NOT NULL AUTO_INCREMENT,
     `username` VARCHAR(50) NOT NULL UNIQUE,
@@ -24,7 +17,6 @@ CREATE TABLE IF NOT EXISTS `user` (
     INDEX `idx_username` (`username`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- 举报表
 CREATE TABLE IF NOT EXISTS `report` (
     `id` BIGINT NOT NULL AUTO_INCREMENT,
     `reporter_id` BIGINT NOT NULL,
@@ -41,7 +33,6 @@ CREATE TABLE IF NOT EXISTS `report` (
     INDEX `idx_target` (`target_type`, `target_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- 敏感词表
 CREATE TABLE IF NOT EXISTS `sensitive_word` (
     `id` BIGINT NOT NULL AUTO_INCREMENT,
     `word` VARCHAR(100) NOT NULL,
@@ -53,7 +44,6 @@ CREATE TABLE IF NOT EXISTS `sensitive_word` (
     UNIQUE KEY `uk_word` (`word`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- 审计日志表
 CREATE TABLE IF NOT EXISTS `audit_log` (
     `id` BIGINT NOT NULL AUTO_INCREMENT,
     `operator_id` BIGINT DEFAULT NULL,
@@ -68,7 +58,6 @@ CREATE TABLE IF NOT EXISTS `audit_log` (
     INDEX `idx_created_at` (`created_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- 帖子表
 CREATE TABLE IF NOT EXISTS `post` (
     `id` BIGINT NOT NULL AUTO_INCREMENT,
     `user_id` BIGINT NOT NULL,
@@ -94,7 +83,6 @@ CREATE TABLE IF NOT EXISTS `post` (
     FOREIGN KEY (`user_id`) REFERENCES `user`(`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- 浏览历史表
 CREATE TABLE IF NOT EXISTS `post_view_history` (
     `id` BIGINT NOT NULL AUTO_INCREMENT,
     `user_id` BIGINT NOT NULL,
@@ -106,7 +94,6 @@ CREATE TABLE IF NOT EXISTS `post_view_history` (
     INDEX `idx_post_id` (`post_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- 分类表
 CREATE TABLE IF NOT EXISTS `category` (
     `id` BIGINT NOT NULL AUTO_INCREMENT,
     `name` VARCHAR(50) NOT NULL,
@@ -117,7 +104,6 @@ CREATE TABLE IF NOT EXISTS `category` (
     PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- 评论表
 CREATE TABLE IF NOT EXISTS `comment` (
     `id` BIGINT NOT NULL AUTO_INCREMENT,
     `post_id` BIGINT NOT NULL,
@@ -135,7 +121,6 @@ CREATE TABLE IF NOT EXISTS `comment` (
     FOREIGN KEY (`user_id`) REFERENCES `user`(`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- 点赞表
 CREATE TABLE IF NOT EXISTS `like` (
     `id` BIGINT NOT NULL AUTO_INCREMENT,
     `user_id` BIGINT NOT NULL,
@@ -147,7 +132,6 @@ CREATE TABLE IF NOT EXISTS `like` (
     INDEX `idx_target` (`target_id`, `target_type`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- 用户关注表
 CREATE TABLE IF NOT EXISTS `user_follow` (
     `id` BIGINT NOT NULL AUTO_INCREMENT,
     `follower_id` BIGINT NOT NULL COMMENT '关注者ID',
@@ -162,7 +146,6 @@ CREATE TABLE IF NOT EXISTS `user_follow` (
     FOREIGN KEY (`following_id`) REFERENCES `user`(`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- 收藏夹表
 CREATE TABLE IF NOT EXISTS `favorite_folder` (
     `id` BIGINT NOT NULL AUTO_INCREMENT,
     `user_id` BIGINT NOT NULL,
@@ -176,7 +159,6 @@ CREATE TABLE IF NOT EXISTS `favorite_folder` (
     FOREIGN KEY (`user_id`) REFERENCES `user`(`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- 帖子收藏表
 CREATE TABLE IF NOT EXISTS `post_favorite` (
     `id` BIGINT NOT NULL AUTO_INCREMENT,
     `user_id` BIGINT NOT NULL,
@@ -194,7 +176,6 @@ CREATE TABLE IF NOT EXISTS `post_favorite` (
     FOREIGN KEY (`folder_id`) REFERENCES `favorite_folder`(`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- 标签表
 CREATE TABLE IF NOT EXISTS `tag` (
     `id` BIGINT NOT NULL AUTO_INCREMENT,
     `name` VARCHAR(50) NOT NULL,
@@ -207,7 +188,6 @@ CREATE TABLE IF NOT EXISTS `tag` (
     INDEX `idx_post_count` (`post_count`, `deleted`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- 帖子标签关系表
 CREATE TABLE IF NOT EXISTS `post_tag` (
     `id` BIGINT NOT NULL AUTO_INCREMENT,
     `post_id` BIGINT NOT NULL,
@@ -220,7 +200,6 @@ CREATE TABLE IF NOT EXISTS `post_tag` (
     FOREIGN KEY (`tag_id`) REFERENCES `tag`(`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- 私信消息表
 CREATE TABLE IF NOT EXISTS `chat_message` (
     `id` BIGINT NOT NULL AUTO_INCREMENT,
     `sender_id` BIGINT NOT NULL,
@@ -235,7 +214,6 @@ CREATE TABLE IF NOT EXISTS `chat_message` (
     FOREIGN KEY (`receiver_id`) REFERENCES `user`(`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- 用户积分表
 CREATE TABLE IF NOT EXISTS `user_point` (
     `id` BIGINT NOT NULL AUTO_INCREMENT,
     `user_id` BIGINT NOT NULL,
@@ -250,7 +228,6 @@ CREATE TABLE IF NOT EXISTS `user_point` (
     FOREIGN KEY (`user_id`) REFERENCES `user`(`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- 积分流水表
 CREATE TABLE IF NOT EXISTS `point_log` (
     `id` BIGINT NOT NULL AUTO_INCREMENT,
     `user_id` BIGINT NOT NULL,
@@ -263,7 +240,6 @@ CREATE TABLE IF NOT EXISTS `point_log` (
     FOREIGN KEY (`user_id`) REFERENCES `user`(`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- 通知表
 CREATE TABLE IF NOT EXISTS `notification` (
     `id` BIGINT NOT NULL AUTO_INCREMENT,
     `user_id` BIGINT NOT NULL,
@@ -278,8 +254,7 @@ CREATE TABLE IF NOT EXISTS `notification` (
     FOREIGN KEY (`user_id`) REFERENCES `user`(`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- 初始分类数据
-INSERT INTO `category` (`name`, `description`, `sort`) VALUES
+INSERT IGNORE INTO `category` (`name`, `description`, `sort`) VALUES
 ('技术交流', '分享技术心得和经验', 1),
 ('问答求助', '提出问题寻求帮助', 2),
 ('项目展示', '展示个人项目成果', 3),
