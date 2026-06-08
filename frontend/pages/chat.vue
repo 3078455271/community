@@ -84,9 +84,13 @@ const formatDate = (date: string) => {
 }
 
 const fetchSessions = async () => {
-  const res = await api.get<ApiResponse<ChatSessionInfo[]>>('/chat/sessions')
-  if (res.code === 200) {
-    sessions.value = res.data
+  try {
+    const res = await api.get<ApiResponse<ChatSessionInfo[]>>('/chat/sessions')
+    if (res.code === 200) {
+      sessions.value = res.data
+    }
+  } catch (error) {
+    console.error('获取私信会话失败:', error)
   }
 }
 
@@ -118,19 +122,30 @@ const openTargetFromQuery = async () => {
 
 const fetchMessages = async () => {
   if (!currentTargetId.value) return
+  const targetId = currentTargetId.value
   loadingMessages.value = true
   try {
-    const res = await api.get<ApiResponse<PageData<ChatMessageInfo>>>(`/chat/messages/${currentTargetId.value}`, {
+    const res = await api.get<ApiResponse<PageData<ChatMessageInfo>>>(`/chat/messages/${targetId}`, {
       page: 1,
       size: 50
     })
     if (res.code === 200) {
       messages.value = res.data.records
-      await api.put<ApiResponse<string>>(`/chat/messages/${currentTargetId.value}/read`)
-      fetchSessions()
+      void markMessagesAsRead(targetId)
+      void fetchSessions()
     }
+  } catch (error) {
+    console.error('获取私信消息失败:', error)
   } finally {
     loadingMessages.value = false
+  }
+}
+
+const markMessagesAsRead = async (targetId: number) => {
+  try {
+    await api.put<ApiResponse<string>>(`/chat/messages/${targetId}/read`)
+  } catch (error) {
+    console.error('标记私信已读失败:', error)
   }
 }
 

@@ -114,7 +114,7 @@
       <el-alert v-else title="该帖子已关闭评论" type="info" show-icon :closable="false" />
 
       <!-- 评论列表 -->
-      <div class="comment-list">
+      <div class="comment-list" v-loading="commentsLoading">
         <div v-for="comment in comments" :key="comment.id" class="comment-item">
           <div class="comment-header">
             <span class="comment-author">{{ comment.nickname || comment.username }}</span>
@@ -138,7 +138,7 @@
           </div>
         </div>
 
-        <el-empty v-if="comments.length === 0" description="暂无评论" />
+        <el-empty v-if="!commentsLoading && comments.length === 0" description="暂无评论" />
       </div>
     </el-card>
   </div>
@@ -157,6 +157,7 @@ const post = ref<PostInfo | null>(null)
 const relatedPosts = ref<PostInfo[]>([])
 const comments = ref<CommentInfo[]>([])
 const loading = ref(true)
+const commentsLoading = ref(false)
 const commentContent = ref('')
 const submitting = ref(false)
 const replyingTo = ref<CommentInfo | null>(null)
@@ -219,7 +220,7 @@ const fetchPost = async () => {
     const res = await api.get<{ code: number; data: PostInfo }>(`/posts/${postId}`)
     if (res.code === 200) {
       post.value = res.data
-      await Promise.all([fetchFollowStatus(), fetchFavoriteStatus(), fetchRelatedPosts()])
+      void Promise.all([fetchFollowStatus(), fetchFavoriteStatus(), fetchRelatedPosts()])
     }
   } catch (error) {
     console.error('获取帖子失败:', error)
@@ -266,6 +267,7 @@ const fetchFollowStatus = async () => {
 }
 
 const fetchComments = async () => {
+  commentsLoading.value = true
   try {
     const res = await api.get<{ code: number; data: CommentInfo[] }>(`/posts/${postId}/comments`)
     if (res.code === 200) {
@@ -273,6 +275,8 @@ const fetchComments = async () => {
     }
   } catch (error) {
     console.error('获取评论失败:', error)
+  } finally {
+    commentsLoading.value = false
   }
 }
 
@@ -439,8 +443,12 @@ const submitComment = async () => {
 }
 
 onMounted(async () => {
-  await Promise.all([fetchPost(), fetchComments()])
-  loading.value = false
+  void fetchComments()
+  try {
+    await fetchPost()
+  } finally {
+    loading.value = false
+  }
 })
 </script>
 

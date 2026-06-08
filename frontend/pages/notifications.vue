@@ -101,9 +101,13 @@ const canNavigate = (item: NotificationInfo) => {
 }
 
 const fetchUnreadCount = async () => {
-  const res = await api.get<ApiResponse<number>>('/notifications/unread-count')
-  if (res.code === 200) {
-    unreadCount.value = res.data
+  try {
+    const res = await api.get<ApiResponse<number>>('/notifications/unread-count')
+    if (res.code === 200) {
+      unreadCount.value = res.data
+    }
+  } catch (error) {
+    console.error('获取未读通知数量失败:', error)
   }
 }
 
@@ -118,7 +122,9 @@ const fetchNotifications = async () => {
       notifications.value = res.data.records
       total.value = res.data.total
     }
-    await fetchUnreadCount()
+    void fetchUnreadCount()
+  } catch (error) {
+    console.error('获取通知列表失败:', error)
   } finally {
     loading.value = false
   }
